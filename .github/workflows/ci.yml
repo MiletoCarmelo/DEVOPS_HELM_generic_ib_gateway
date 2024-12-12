@@ -64,7 +64,7 @@ jobs:
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
           compose-file: "./docker-compose.yaml"
-          services: "ib-gateway,novnc"
+          services: "ib-gateway novnc" 
           up-flags: "--build"
 
       - name: Push images
