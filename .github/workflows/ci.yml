@@ -23,6 +23,10 @@ jobs:
         with:
           submodules: 'true'  # Cette option garantit que les submodules sont clonés
 
+      - name: Update submodules
+        run: |
+          git submodule update --init --recursive
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
