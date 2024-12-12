@@ -62,7 +62,7 @@ jobs:
       - name: Build with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
-          compose-file: "./ci/docker-compose.build.yaml"
+          compose-file: "./docker-compose.build.yaml"
           up-flags: "--build"
           services: "ib-gateway novnc"
 
