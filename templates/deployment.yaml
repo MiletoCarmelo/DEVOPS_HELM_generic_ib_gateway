@@ -13,6 +13,10 @@ spec:
       labels:
         app: {{ include "ib-gateway.name" . }}
     spec:
+       {{- if .Values.nodeSelector }}
+      nodeSelector:
+        kubernetes.io/arch: arm64  # Force l'utilisation d'un nœud ARM64
+      {{- end }}
       containers:
         - name: ib-gateway
           {{- if .Values.image }}
