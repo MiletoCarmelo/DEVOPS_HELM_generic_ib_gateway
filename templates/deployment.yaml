@@ -44,7 +44,7 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secret.name }}
                   key: password
-            - name: TRADING_MODE
+            - name: trading_MODE
               value: {{ .Values.ibgateway.mode | quote }}
             - name: TZ
               value: {{ .Values.ibgateway.timezone | quote }}

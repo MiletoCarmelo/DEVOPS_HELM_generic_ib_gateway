@@ -24,7 +24,7 @@ persistence:
 
 # Configuration du namespace
 namespace:
-  name: "trading"
+  name: "ib-gateway"
 
 ingress:
   enabled: true
