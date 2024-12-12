@@ -60,11 +60,18 @@ jobs:
           echo "TIME_ZONE=Europe/Paris" >> .env
           echo "VNC_SERVER_PASSWORD=demo" >> .env
 
-      - name: Build with Docker Compose
+      - name: Build ib-gateway
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
           compose-file: "./docker-compose.yaml"
-          services: "ib-gateway novnc" 
+          services: "ib-gateway"
+          up-flags: "--build"
+  
+      - name: Build novnc
+        uses: hoverkraft-tech/compose-action@v2.0.2
+        with:
+          compose-file: "./docker-compose.yaml"
+          services: "novnc"
           up-flags: "--build"
 
       - name: Push images
