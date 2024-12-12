@@ -23,7 +23,7 @@ jobs:
         with:
           submodules: 'true'  # Cette option garantit que les submodules sont clonés
 
-      - name: Update submodules
+      - name: Update submodules fot ib-gateway
         run: |
           git submodule update --init --recursive
 
