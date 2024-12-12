@@ -60,20 +60,12 @@ jobs:
           echo "TIME_ZONE=Europe/Paris" >> .env
           echo "VNC_SERVER_PASSWORD=demo" >> .env
 
-      - name: Modify docker-compose.yaml for GHCR
-        run: |
-          sed -i "s|build:|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest\n    build:|g" docker-compose.yaml
-          cat docker-compose.yaml
-
-      - name: Build and push with Docker Compose
-        run: |
-          docker-compose build --pull
-          docker images
-          docker-compose push
-
-      - name: Verify pushed images
-        run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest
+      - name: Build and Push with Docker Compose
+        uses: hoverkraft-tech/compose-action@v0.0.0
+        with:
+          compose-file: "./docker-compose.yaml"
+          up-flags: "--build"
+          compose-flags: "--push"
 
   release-chart:
     needs: build-and-push-image
