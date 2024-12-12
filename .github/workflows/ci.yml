@@ -71,7 +71,7 @@ jobs:
           services: |
               ib-gateway
               novnc
-          up-flags: "--build --no-start push"
+          up-flags: "--build --no-start"
           # compose-flags: "push"
 
   release-chart:
