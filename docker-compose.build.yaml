@@ -4,10 +4,14 @@ services:
     build:
       context: ./ib-gateway-docker/stable
       dockerfile: Dockerfile
+      platforms:
+          - linux/arm64
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}:latest-arm64
 
   novnc:
     build:
       context: .
       dockerfile: novnc.Dockerfile
+      platforms:
+        - linux/arm64
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}-novnc:latest-arm64
