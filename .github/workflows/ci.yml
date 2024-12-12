@@ -71,13 +71,8 @@ jobs:
           services: |
               ib-gateway
               novnc
-          up-flags: "--build no-start"
-          compose-flags: "push"
-
-      - name: Display container logs if tests fail
-        if: failure()
-          run: |
-            docker compose -f testing.yaml logs
+          up-flags: "--build --no-start"
+          # compose-flags: "push"
 
   release-chart:
     needs: build-and-push-image
