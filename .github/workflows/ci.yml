@@ -61,7 +61,7 @@ jobs:
           echo "VNC_SERVER_PASSWORD=demo" >> .env
 
       - name: Build and Push with Docker Compose
-        uses: hoverkraft-tech/compose-action@v0.0.0
+        uses: hoverkraft-tech/compose-action@v2.0.2
         with:
           compose-file: "./docker-compose.yaml"
           up-flags: "--build"
