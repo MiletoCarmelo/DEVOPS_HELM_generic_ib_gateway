@@ -40,6 +40,22 @@ ibgateway:
   apiPort: "4002"
   timezone: "Europe/Paris"
 
+probes:
+  liveness:
+    enabled: false
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  readiness:
+    enabled: false
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+logging:
+  level: debug
+
+security:
+  autoRestartOnDisconnect: true
+
 # Configuration NoVNC
 novnc:
   enabled: true
