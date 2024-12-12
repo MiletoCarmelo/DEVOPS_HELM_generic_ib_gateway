@@ -67,11 +67,11 @@ jobs:
       - name: Build and Push with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
-          compose-file: "./docker-compose.build.yaml"
+          compose-file: docker-compose.build.yaml
           services: |
               ib-gateway
               novnc
-          up-flags: "build no-start"
+          up-flags: "--build no-start"
           compose-flags: "push"
 
   release-chart:
