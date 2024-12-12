@@ -28,6 +28,14 @@ namespace:
 
 ingress:
   enabled: true
+  className: "nginx"  # ou votre classe d'ingress préférée
+  annotations: {}
+  hosts:
+    - host: ibgateway.local  # remplacez par votre nom d'hôte par défaut
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 4002  # port API par défaut
 
 # Configuration des secrets
 secret:
