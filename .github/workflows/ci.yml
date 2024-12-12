@@ -68,9 +68,10 @@ jobs:
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version
 
-      - name: Check ls 
+      - name: Check ls  and pwd 
         run: |
           sudo ls -la 
+          sudo pwd
     
       - name: Build and push with Docker Compose
         run: |
