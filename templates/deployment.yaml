@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "ib-gateway.name" . }}-ibgateway
+  name: {{ include "ib-gateway.name" . }}
   labels:
-    app: {{ include "ib-gateway.name" . }}-ibgateway
+    app: {{ include "ib-gateway.name" . }}
 spec:
   selector:
     matchLabels:
-      app: {{ include "ib-gateway.name" . }}-ibgateway  # Ajout des matchLabels
+      app: {{ include "ib-gateway.name" . }}
   template:
     metadata:
       labels:
-        app: {{ include "ib-gateway.name" . }}-ibgateway  # Les mêmes labels que dans matchLabels
+        app: {{ include "ib-gateway.name" . }}
     spec:
       containers:
         - name: ib-gateway
