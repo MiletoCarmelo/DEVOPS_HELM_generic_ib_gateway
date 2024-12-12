@@ -58,6 +58,11 @@ jobs:
           echo "TIME_ZONE=Europe/Paris" >> .env
           echo "VNC_SERVER_PASSWORD=demo" >> .env
 
+      - name: Check ls & pwd 
+        run: |
+          ls -la 
+          pwd 
+          
       - name: Build with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
