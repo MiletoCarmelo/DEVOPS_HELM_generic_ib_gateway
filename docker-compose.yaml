@@ -1,0 +1,42 @@
+name: algo-trader
+services:
+  ib-gateway:
+    restart: always
+    build:
+      context: ./ib-gateway-docker/stable
+      dockerfile: Dockerfile
+    environment:
+      TWS_USERID: ${TWS_USERID}
+      TWS_PASSWORD: ${TWS_PASSWORD}
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      TIME_ZONE: ${TIME_ZONE:-Europe/Paris}
+      TZ: ${TIME_ZONE:-Europe/Paris}
+      VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD}
+      JAVA_HEAP_SIZE: 1024
+    ports:
+      - "100.64.102.47:4001:4003"
+      - "100.64.102.47:4002:4004"
+      - "100.64.102.47:5900:5900"
+    networks:
+      - ib-network
+
+  novnc:
+    build:
+      context: .
+      dockerfile: novnc.Dockerfile
+    environment:
+      - DISPLAY_WIDTH=1280
+      - DISPLAY_HEIGHT=720
+      - VNC_PORT=5900
+      - VNC_HOST=ib-gateway
+      - VNC_PASSWORD=${VNC_SERVER_PASSWORD}
+    ports:
+      - "100.64.102.47:6080:6080"
+    depends_on:
+      - ib-gateway
+    networks:
+      - ib-network
+
+networks:
+  ib-network:
+    driver: bridge

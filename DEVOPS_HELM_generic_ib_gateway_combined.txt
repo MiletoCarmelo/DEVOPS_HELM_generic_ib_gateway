@@ -1,0 +1,3809 @@
+==== ./script-manager.sh ====
+
+#!/bin/bash
+
+# Vérifie si un argument (répertoire source) est fourni
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <directory>"
+    exit 1
+fi
+
+SOURCE_DIR="$1"
+
+# Obtient le nom du dossier parent (enlève le chemin complet)
+DIR_NAME=$(basename "$(realpath "$SOURCE_DIR")")
+OUTPUT_FILE="${DIR_NAME}_combined.txt"
+
+# Vérifie si le répertoire existe
+if [ ! -d "$SOURCE_DIR" ]; then
+    echo "Le répertoire '$SOURCE_DIR' n'existe pas"
+    exit 1
+fi
+
+# Supprime le fichier de sortie s'il existe déjà
+[ -f "$OUTPUT_FILE" ] && rm "$OUTPUT_FILE"
+
+# Trouve tous les fichiers yaml, yml et _tpl et les traite
+find "$SOURCE_DIR" \( -name "*.yaml" -o -name "*.yml" -o -name "*_tpl" -o -name "*.sh"  -o -name "Dockerfile*" -o -name "*.conf" \) | while read -r file; do
+    # Vérifie si le fichier est lisible
+    if [ -r "$file" ]; then
+        # Ajoute le séparateur avec le nom du fichier
+        echo "==== $file ====" >> "$OUTPUT_FILE"
+        # Ajoute une ligne vide pour la lisibilité
+        echo "" >> "$OUTPUT_FILE"
+        # Ajoute le contenu du fichier
+        cat "$file" >> "$OUTPUT_FILE"
+        # Ajoute deux lignes vides après chaque fichier
+        echo "" >> "$OUTPUT_FILE"
+        echo "" >> "$OUTPUT_FILE"
+    fi
+done
+
+echo "Les fichiers YAML et TPL ont été combinés dans $OUTPUT_FILE"
+
+==== ./values.yaml ====
+
+TWS_USERID=votre_identifiant_ib
+TWS_PASSWORD=votre_mot_de_passe_ib
+TRADING_MODE=paper  # utilisez 'paper' pour le compte démo ou 'live' pour le compte réel
+READ_ONLY_API=no
+VNC_SERVER_PASSWORD=mot_de_passe_vnc  # optionnel, pour accéder à l'interface via VNC
+TIME_ZONE=Europe/Paris  # ajustez selon votre fuseau horaire
+Créez un fichier docker-compose.yml :
+yaml
+
+Copy
+version: "3.4"
+
+name: algo-trader
+services:
+  ib-gateway:
+    restart: always
+    image: ghcr.io/gnzsnz/ib-gateway:stable
+    environment:
+      TWS_USERID: ${TWS_USERID}
+      TWS_PASSWORD: ${TWS_PASSWORD}
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      READ_ONLY_API: ${READ_ONLY_API:-}
+      VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD:-}
+      TIME_ZONE: ${TIME_ZONE:-Europe/Paris}
+      TZ: ${TIME_ZONE:-Europe/Paris}
+    ports:
+      - "127.0.0.1:4001:4003"  # port pour le compte live
+      - "127.0.0.1:4002:4004"  # port pour le compte paper
+      - "127.0.0.1:5900:5900"  # port VNC
+Lancez le conteneur :
+bash
+
+Copy
+docker compose up -d
+Vérifiez que le conteneur fonctionne :
+bash
+
+Copy
+docker compose ps
+Pour vous connecter à l'interface graphique (si vous avez défini VNC_SERVER_PASSWORD) :
+Utilisez un client VNC comme VNC Viewer
+Connectez-vous à localhost:5900
+Utilisez le mot de passe défini dans VNC_SERVER_PASSWORD
+Pour vous connecter via l'API :
+En mode paper trading : port 4002
+En mode live trading : port 4001
+Quelques points importants :
+Par défaut, les ports ne sont exposés que sur localhost pour des raisons de sécurité
+Assurez-vous d'avoir une connexion Internet stable
+Le conteneur redémarrera automatiquement en cas de problème grâce à restart: always
+Voulez-vous que je vous aide avec une étape en particulier ou avez-vous des questions spécifiques ?
+Copy
+Retry
+
+
+CM
+pouvons nous remplacer vnc par novnc ?
+
+Oui, nous pouvons intégrer noVNC pour avoir un accès via le navigateur web plutôt qu'un client VNC natif. Je vais créer une configuration qui ajoute noVNC au conteneur IB Gateway.
+
+Docker Compose avec noVNC
+Click to open code
+Voici les modifications et ajouts que j'ai apportés :
+Ajout d'un service noVNC qui se connecte au service IB Gateway
+Création d'un réseau Docker dédié pour que les services puissent communiquer
+Suppression du port VNC exposé sur IB Gateway car il n'est plus nécessaire
+Configuration de noVNC pour utiliser le même mot de passe VNC
+Pour utiliser cette nouvelle configuration :
+Gardez le même fichier .env que précédemment
+Remplacez votre docker-compose.yml par le nouveau contenu
+Lancez les services :
+bash
+
+Copy
+docker compose up -d
+Pour accéder à l'interface IB Gateway :
+Ouvrez votre navigateur web
+Accédez à http://localhost:8080/vnc.html
+Entrez le mot de passe VNC que vous avez défini dans VNC_SERVER_PASSWORD
+Avantages de cette configuration :
+Accès via navigateur web sans logiciel supplémentaire
+Interface plus moderne et responsive
+Possibilité d'accéder à l'interface depuis n'importe quel appareil sur votre réseau (si vous exposez le port 8080)
+Meilleure sécurité car le port VNC n'est pas exposé directement
+Voulez-vous que je vous aide à configurer des paramètres spécifiques pour noVNC ou avez-vous des questions sur cette configuration ?
+Copy
+Retry
+
+
+CM
+pouvons nous choisir le port 6080 pour novnc ?
+
+Oui, absolument ! Je vais modifier la configuration pour utiliser le port 6080 au lieu de 8080.
+
+Docker Compose avec noVNC sur port 6080
+Click to open code
+La modification principale est dans la section ports du service novnc :
+Avant : - "8080:8080"
+Après : - "6080:8080"
+Maintenant, vous pourrez accéder à noVNC via :
+http://localhost:6080/vnc.html
+Le port 8080 à l'intérieur du conteneur reste inchangé car c'est le port par défaut du serveur noVNC, nous ne faisons que modifier le port exposé sur votre machine hôte.
+Voulez-vous redémarrer les services pour appliquer ce changement ?
+Copy
+Retry
+
+
+CM
+peux on monter limage du coup
+
+Oui, allons-y pour monter l'image complète. Voici les étapes :
+D'abord, créons le fichier .env :
+bash
+
+Copy
+touch .env
+Ajoutez ces lignes dedans (remplacez avec vos informations) :
+
+Copy
+TWS_USERID=votre_identifiant_ib
+TWS_PASSWORD=votre_mot_de_passe_ib
+TRADING_MODE=paper
+READ_ONLY_API=no
+VNC_SERVER_PASSWORD=choisissez_un_mot_de_passe_vnc
+TIME_ZONE=Europe/Paris
+Créez le fichier docker-compose.yml avec le contenu que nous avons défini précédemment.
+Créez et démarrez les conteneurs :
+bash
+
+Copy
+docker compose up -d
+Vérifiez que les conteneurs sont bien lancés :
+bash
+
+Copy
+docker compose ps
+Vérifiez les logs en cas de problème :
+bash
+
+Copy
+docker compose logs -f
+Une fois tout démarré, vous pourrez accéder à :
+Interface IB Gateway via noVNC : http://localhost:6080/vnc.html
+API IB en paper trading : port 4002
+API IB en live trading : port 4001
+Voulez-vous que je vous aide à lancer les commandes ou avez-vous besoin d'aide pour une étape en particulier ?
+Copy
+Retry
+
+
+
+==== ./script-manager.sh ==== #!/bin/bash # Vérifie si un argument (répertoire source) est fourni if [ $# -ne 1 ]; then echo "Usage: $0 <directory>" exit 1 fi SOURCE_DIR="$1" # Obtient le
+PASTED
+CM
+voici le tree du project :
+(base) cquant@cquant-desktop:~/k8s/DEVOPS_HELM_generic_ib_gateway$ tree
+.
+├── Chart.yaml
+├── ib-gateway-project
+│   └── docker-compose.yaml
+├── script-manager.sh
+├── templates
+│   ├── _helpers.tpl
+│   ├── configmap.yaml
+│   ├── deployment.yaml
+│   ├── ingress.yaml
+│   └── service.yaml
+└── values.yaml
+3 directories, 9 files
+et les fichiers :
+
+D'après les fichiers fournis, je vois que vous avez une structure de chart Helm pour déployer IB Gateway sur Kubernetes, ainsi qu'une version Docker Compose. Il manque quelques fichiers importants et il y a quelques ajustements à faire. Je vais vous aider à compléter et organiser cela.
+D'abord, il manque le fichier templates/_helpers.tpl. Créons-le :
+
+templates/_helpers.tpl
+Click to open code
+Il manque la section image dans votre values.yaml. On doit l'ajouter :
+
+Section image pour values.yaml
+Click to open code
+Pour NoVNC, nous devrions ajouter un service et un déploiement séparés. Créons templates/novnc.yaml:
+
+templates/novnc.yaml
+Click to open code
+Ajoutons la configuration NoVNC dans values.yaml:
+
+Section NoVNC pour values.yaml
+Click to open code
+Ces modifications complètent votre chart Helm avec le support de NoVNC. Pour déployer :
+Ajoutez les sections manquantes dans votre values.yaml
+Créez les nouveaux fichiers
+Testez le chart :
+bash
+
+Copy
+helm lint .
+helm template . --debug
+Pour déployer :
+bash
+
+Copy
+helm install ib-gateway . -n trading
+Avez-vous besoin d'aide pour une partie spécifique ou souhaitez-vous des ajustements particuliers ?
+Copy
+Retry
+
+
+CM
+peux tu me donner les yaml complet et actualisés ?
+
+Je vais vous fournir tous les fichiers YAML actualisés et complets.
+
+Fichiers YAML complets du Chart Helm
+Click to open code
+Ces fichiers YAML incluent toutes les mises à jour et améliorations que nous avons discutées. Les principales modifications comprennent :
+Ajout de la PVC pour la persistance
+Configuration complète de NoVNC
+Amélioration des sondes de santé
+Configuration des ressources
+Ajout des variables d'environnement nécessaires
+Support pour VNC et NoVNC
+Configuration des logs et du superviseur
+Pour déployer :
+Créez d'abord le namespace :
+bash
+
+Copy
+kubectl create namespace trading
+Créez le secret (remplacez les valeurs) :
+bash
+
+Copy
+kubectl create secret generic ib-gateway-secrets \
+  --namespace trading \
+  --from-literal=username='your-ib-user' \
+  --from-literal=password='your-ib-password' \
+  --from-literal=account='your-ib-account'
+Installez le chart :
+bash
+
+Copy
+helm install ib-gateway . -n trading
+Avez-vous besoin d'autres précisions ou d'aide pour une partie spécifique ?
+Copy
+Retry
+
+
+Claude can make mistakes. Please double-check responses.
+
+
+
+
+3.5 Sonnet
+
+Choose style
+
+Fichiers YAML complets du Chart Helm
+
+# values.yaml
+image:
+  repository: ghcr.io/gnzsnz/ib-gateway
+  tag: "stable"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Configuration du namespace
+namespace:
+  name: "trading"
+
+# Configuration des secrets
+secret:
+  name: "ib-gateway-secrets"
+
+# Configuration IB Gateway
+ibgateway:
+  mode: "paper"
+  port: "4001"
+  apiPort: "4002"
+  timezone: "Europe/Paris"
+
+# Configuration NoVNC
+novnc:
+  enabled: true
+  image:
+    repository: theasp/novnc
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 6080
+  display:
+    width: "1280"
+    height: "720"
+
+# Configuration VNC
+vnc:
+  enabled: true
+  port: "5900"
+  password: "myVNCpass"
+
+==== ./Chart.yaml ====
+
+# Chart.yaml
+apiVersion: v2
+name: ib-gateway
+description: A Helm chart for deploying Interactive Brokers Gateway on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+==== ./novnc-start.sh ====
+
+#!/bin/bash
+
+/opt/novnc/utils/novnc_proxy --vnc ${VNC_HOST}:${VNC_PORT} --listen ${PORT:-6080}
+
+==== ./scripts/creer_secret_ib.sh ====
+
+#!/bin/bash
+
+# Couleurs et styles
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
+# Variables
+NAMESPACE="trading"
+SECRET_NAME="ib-gateway-secrets" # Doit correspondre à .Values.secret.name dans values.yaml
+ENV_FILE=".env"
+
+# Fonction pour afficher les messages
+log() {
+    local level=$1
+    local message=$2
+    case $level in
+        "info")
+            echo -e "${BLUE}ℹ️ ${message}${NC}"
+            ;;
+        "success")
+            echo -e "${GREEN}✅ ${message}${NC}"
+            ;;
+        "error")
+            echo -e "${RED}❌ ${message}${NC}"
+            ;;
+        "warning")
+            echo -e "${YELLOW}⚠️ ${message}${NC}"
+            ;;
+    esac
+}
+
+# Vérification de l'existence du fichier .env
+if [ ! -f "$ENV_FILE" ]; then
+    log "error" "Le fichier $ENV_FILE n'existe pas"
+    echo "Créez un fichier $ENV_FILE avec les variables suivantes:"
+    echo "TWS_USERID=votre_username"
+    echo "TWS_PASSWORD=votre_password"
+    echo "IB_ACCOUNT=votre_compte"
+    exit 1
+fi
+
+# Vérification de kubectl
+if ! command -v kubectl &> /dev/null; then
+    log "error" "kubectl n'est pas installé"
+    exit 1
+fi
+
+# Lecture des variables sensibles depuis le fichier .env
+log "info" "Lecture des variables depuis $ENV_FILE..."
+TWS_USERID=$(grep TWS_USERID "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+TWS_PASSWORD=$(grep TWS_PASSWORD "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+IB_ACCOUNT=$(grep IB_ACCOUNT "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+
+# Vérification des variables requises
+missing_vars=()
+[ -z "$TWS_USERID" ] && missing_vars+=("TWS_USERID")
+[ -z "$TWS_PASSWORD" ] && missing_vars+=("TWS_PASSWORD")
+[ -z "$IB_ACCOUNT" ] && missing_vars+=("IB_ACCOUNT")
+
+if [ ${#missing_vars[@]} -ne 0 ]; then
+    log "error" "Variables manquantes dans $ENV_FILE:"
+    for var in "${missing_vars[@]}"; do
+        echo "- $var"
+    done
+    exit 1
+fi
+
+# Vérification de la connexion au cluster
+log "info" "Vérification de la connexion au cluster Kubernetes..."
+if ! kubectl cluster-info &> /dev/null; then
+    log "error" "Impossible de se connecter au cluster Kubernetes"
+    exit 1
+fi
+
+# Création du namespace s'il n'existe pas
+log "info" "Création du namespace ${NAMESPACE}..."
+if kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f - ; then
+    log "success" "Namespace ${NAMESPACE} prêt"
+else
+    log "error" "Erreur lors de la création du namespace"
+    exit 1
+fi
+
+# Création du secret pour IB Gateway
+log "info" "Création du secret ${SECRET_NAME}..."
+if kubectl create secret generic "${SECRET_NAME}" \
+    -n "${NAMESPACE}" \
+    --from-literal=username="${TWS_USERID}" \
+    --from-literal=password="${TWS_PASSWORD}" \
+    --from-literal=account="${IB_ACCOUNT}" \
+    --dry-run=client -o yaml | kubectl apply -f - ; then
+    log "success" "Secret ${SECRET_NAME} créé avec succès"
+else
+    log "error" "Erreur lors de la création du secret"
+    exit 1
+fi
+
+# Vérification du secret
+log "info" "Vérification du secret..."
+if kubectl get secret "${SECRET_NAME}" -n "${NAMESPACE}" &> /dev/null; then
+    log "success" "Le secret ${SECRET_NAME} existe dans le namespace ${NAMESPACE}"
+else
+    log "error" "Le secret ${SECRET_NAME} n'a pas été créé correctement"
+    exit 1
+fi
+
+# Affichage du résumé
+echo -e "\n${BOLD}Résumé de l'installation :${NC}"
+echo -e "Namespace: ${BLUE}${NAMESPACE}${NC}"
+echo -e "Secret: ${BLUE}${SECRET_NAME}${NC}"
+echo -e "Username configuré: ${BLUE}${TWS_USERID}${NC}"
+echo -e "Compte IB configuré: ${BLUE}${IB_ACCOUNT}${NC}"
+
+log "success" "Configuration terminée avec succès !"
+
+==== ./.github/workflows/ci.yml ====
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  BRANCH_PAGES: github-pages
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/ib-gateway
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: 'linux/amd64,linux/arm64'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: 'linux/amd64,linux/arm64'
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lowercase IMAGE_NAME
+        id: set_image_name
+        run: |
+          echo "IMAGE_NAME_LOWER=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release-chart:
+    needs: build-and-push-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Update values.yaml with new image
+        run: |
+          sed -i "s|repository:.*|repository: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}|" ./values.yaml
+          sed -i "s|tag:.*|tag: latest|" ./values.yaml
+
+      - name: Publish Helm chart
+        uses: stefanprodan/helm-gh-pages@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          charts_dir: ..
+          branch: ${{ env.BRANCH_PAGES }}
+          charts_url: https://raw.githubusercontent.com/${{ github.repository }}/${{ env.BRANCH_PAGES }}
+          linting: false
+
+      - name: Summary
+        run: |
+          echo "Chart URL: https://raw.githubusercontent.com/${{ github.repository }}/${{ env.BRANCH_PAGES }}"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest"
+
+==== ./.github/workflows/repo-initialization.yml ====
+
+name: Repository initialization
+
+on:
+  repository_dispatch:
+    types: [initialize]
+    
+  workflow_dispatch:
+
+env:
+  REPO_NAME: ${{ github.event.repository.name }}
+
+jobs:
+  create-branches:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout main branch
+      uses: actions/checkout@v2
+      with:
+        ref: main
+
+    - name: Create release/uat branch
+      if:  ${{startsWith(env.REPO_NAME, 'DEVOPS_') || startsWith(env.REPO_NAME, 'INF_') || startsWith(env.REPO_NAME, 'DEV_')}}
+      uses: peterjgrainger/action-create-branch@v2.4.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        branch: refs/heads/release/uat
+
+    - name: Create release/prod branch
+      if:  ${{startsWith(env.REPO_NAME, 'DEVOPS_') || startsWith(env.REPO_NAME, 'INF_') || startsWith(env.REPO_NAME, 'DEV_')}}
+      uses: peterjgrainger/action-create-branch@v2.4.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        branch: refs/heads/release/prod
+
+    - name: Create github-pages branch
+      if: ${{startsWith(env.REPO_NAME, 'DEVOPS_HELM_')}}
+      uses: peterjgrainger/action-create-branch@v2.4.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        branch: github-pages
+
+    - name: Create DEV branch
+      if: ${{startsWith(env.REPO_NAME, 'QUA_')}}
+      uses: peterjgrainger/action-create-branch@v2.4.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        branch: DEV
+
+    - name: Create prod branch
+      if: ${{startsWith(env.REPO_NAME, 'QUA_')}}
+      uses: peterjgrainger/action-create-branch@v2.4.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        branch: prod
+
+
+==== ./templates/configmap.yaml ====
+
+# templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}-config
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+data:
+  TWS_PORT: "{{ .Values.ibgateway.port }}"
+  API_PORT: "{{ .Values.ibgateway.apiPort }}"
+  TRADING_MODE: "{{ .Values.ibgateway.mode }}"
+  TZ: "{{ .Values.ibgateway.timezone }}"
+  LOG_LEVEL: "{{ .Values.logging.level }}"
+  {{- if .Values.security.autoRestartOnDisconnect }}
+  IBC_AUTO_RESTART_ON_DISCONNECT: "yes"
+  {{- end }}
+  {{- if .Values.vnc.enabled }}
+  VNC_SERVER_PASSWORD: "{{ .Values.vnc.password }}"
+  {{- end }}
+
+==== ./templates/service.yaml ====
+
+# templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.ibgateway.apiPort | int }}
+      targetPort: api
+      protocol: TCP
+      name: api
+    - port: {{ .Values.ibgateway.port | int }}
+      targetPort: tws
+      protocol: TCP
+      name: tws
+    {{- if .Values.vnc.enabled }}
+    - port: {{ .Values.vnc.port | int }}
+      targetPort: vnc
+      protocol: TCP
+      name: vnc
+    {{- end }}
+  selector:
+    {{- include "ib-gateway.selectorLabels" . | nindent 4 }}
+
+
+==== ./templates/deployment.yaml ====
+
+# templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ib-gateway.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ib-gateway.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "ib-gateway.serviceAccountName" . }}
+      containers:
+        - name: ib-gateway
+          image: {{ include "ib-gateway.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: tws
+              containerPort: {{ .Values.ibgateway.port | int }}
+              protocol: TCP
+            - name: api
+              containerPort: {{ .Values.ibgateway.apiPort | int }}
+              protocol: TCP
+            {{- if .Values.vnc.enabled }}
+            - name: vnc
+              containerPort: {{ .Values.vnc.port | int }}
+              protocol: TCP
+            {{- end }}
+          env:
+            - name: TWS_USERID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secret.name }}
+                  key: username
+            - name: TWS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secret.name }}
+                  key: password
+            - name: TRADING_MODE
+              value: {{ .Values.ibgateway.mode | quote }}
+            - name: TZ
+              value: {{ .Values.ibgateway.timezone | quote }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "ib-gateway.fullname" . }}-config
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            tcpSocket:
+              port: api
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            tcpSocket:
+              port: api
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /root/Jts
+              subPath: config
+            - name: data
+              mountPath: /root/IBController/Logs
+              subPath: logs
+          {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "ib-gateway.fullname" . }}-pvc
+      {{- end }}
+
+
+==== ./templates/novnc.yaml ====
+
+# templates/novnc.yaml
+{{- if .Values.novnc.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}-novnc
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: novnc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ib-gateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: novnc
+  template:
+    metadata:
+      labels:
+        {{- include "ib-gateway.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: novnc
+    spec:
+      containers:
+        - name: novnc
+          image: {{ .Values.novnc.image.repository }}:{{ .Values.novnc.image.tag }}
+          imagePullPolicy: {{ .Values.novnc.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: DISPLAY_WIDTH
+              value: "{{ .Values.novnc.display.width }}"
+            - name: DISPLAY_HEIGHT
+              value: "{{ .Values.novnc.display.height }}"
+            - name: RUN_XTERM
+              value: "no"
+            - name: RUN_FLUXBOX
+              value: "no"
+            - name: VNC_PORT
+              value: "{{ .Values.vnc.port }}"
+            - name: VNC_HOST
+              value: {{ include "ib-gateway.fullname" . }}
+            - name: VNC_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ib-gateway.fullname" . }}-config
+                  key: VNC_SERVER_PASSWORD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}-novnc
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: novnc
+spec:
+  type: {{ .Values.novnc.service.type }}
+  ports:
+    - port: {{ .Values.novnc.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ib-gateway.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: novnc
+{{- end }}
+
+==== ./templates/pvc.yaml ====
+
+# templates/pvc.yaml
+{{- if .Values.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}-pvc
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}
+
+==== ./templates/ingress.yaml ====
+
+# templates/ingress.yaml (optionnel, à ajouter si nécessaire)
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "ib-gateway.fullname" $ }}
+                port:
+                  number: {{ .port }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+
+==== ./docker-compose.yaml ====
+
+name: algo-trader
+services:
+  ib-gateway:
+    restart: always
+    build:
+      context: ./ib-gateway-docker/stable
+      dockerfile: Dockerfile
+    environment:
+      TWS_USERID: ${TWS_USERID}
+      TWS_PASSWORD: ${TWS_PASSWORD}
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      TIME_ZONE: ${TIME_ZONE:-Europe/Paris}
+      TZ: ${TIME_ZONE:-Europe/Paris}
+      VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD}
+      JAVA_HEAP_SIZE: 1024
+    ports:
+      - "0.0.0.0:4001:4003"
+      - "0.0.0.0:4002:4004"
+      - "0.0.0.0:5900:5900"
+    networks:
+      - ib-network
+
+  novnc:
+    build:
+      context: .
+      dockerfile: novnc.Dockerfile
+    environment:
+      - DISPLAY_WIDTH=1280
+      - DISPLAY_HEIGHT=720
+      - VNC_PORT=5900
+      - VNC_HOST=ib-gateway
+      - VNC_PASSWORD=${VNC_SERVER_PASSWORD}
+    ports:
+      - "0.0.0.0:6080:8080"
+    depends_on:
+      - ib-gateway
+    networks:
+      - ib-network
+
+networks:
+  ib-network:
+    driver: bridge
+
+==== ./ib-gateway-docker/tws-docker-compose.yml ====
+
+version: "3.4"
+
+name: algo-trader
+services:
+  tws:
+    restart: unless-stopped
+    devices:
+      - /dev/dri:/dev/dri #recomended
+    shm_size: "1gb" #recomended
+    security_opt:
+      - seccomp:unconfined #recomended
+    build:
+      context: ./latest
+      dockerfile: Dockerfile.tws
+      tags:
+        - "ghcr.io/gnzsnz/tws-rdesktop:latest"
+    image: ghcr.io/gnzsnz/tws-rdesktop:latest
+    environment:
+      PUID: 1000
+      PGID: 1000
+      PASSWD: ${PASSWD:-}
+      TWS_USERID: ${TWS_USERID}
+      TWS_PASSWORD: ${TWS_PASSWORD}
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      TWS_USERID_PAPER: ${TWS_USERID_PAPER:-}
+      TWS_PASSWORD_PAPER: ${TWS_PASSWORD_PAPER:-}
+      TWS_SETTINGS_PATH: ${TWS_SETTINGS_PATH:-}
+      READ_ONLY_API: ${READ_ONLY_API:-}
+      TWOFA_TIMEOUT_ACTION: ${TWOFA_TIMEOUT_ACTION:-exit}
+      BYPASS_WARNING: ${BYPASS_WARNING:-}
+      AUTO_RESTART_TIME: ${AUTO_RESTART_TIME:-}
+      AUTO_LOGOFF_TIME: ${AUTO_LOGOFF_TIME:-}
+      SAVE_TWS_SETTINGS: ${SAVE_TWS_SETTINGS:-}
+      RELOGIN_AFTER_TWOFA_TIMEOUT: ${RELOGIN_AFTER_TWOFA_TIMEOUT:-no}
+      TWOFA_EXIT_INTERVAL: ${TWOFA_EXIT_INTERVAL:-60}
+      TIME_ZONE: ${TIME_ZONE:-Etc/UTC}
+      TZ: ${TIME_ZONE:-Etc/UTC}
+      CUSTOM_CONFIG: ${CUSTOM_CONFIG:-NO}
+      JAVA_HEAP_SIZE: ${JAVA_HEAP_SIZE:-}
+      SSH_TUNNEL: ${SSH_TUNNEL:-}
+      SSH_OPTIONS: ${SSH_OPTIONS:-}
+      SSH_ALIVE_INTERVAL: ${SSH_ALIVE_INTERVAL:-}
+      SSH_ALIVE_COUNT: ${SSH_ALIVE_COUNT:-}
+      SSH_PASSPHRASE: ${SSH_PASSPHRASE:-}
+      SSH_REMOTE_PORT: ${SSH_REMOTE_PORT:-}
+      SSH_USER_TUNNEL: ${SSH_USER_TUNNEL:-}
+      SSH_RESTART: ${SSH_RESTART:-}
+      SSH_RDP_PORT: ${SSH_RDP_PORT:-}
+    volumes:
+      - ./config:/config # optional
+      - tws_tmp:/tmp # recommended for performance
+    # custom certificate and key
+    #- ${PWD}/keylock:/keylock # required to avoid key generation by container
+    #- ${PWD/key.pem:/etc/xrdp/key.pem # key
+    #- ${PWD}/cert.pem:/etc/xrdp/cert.pem # cert
+    ports:
+      - "127.0.0.1:7496:7498" # live
+      - "127.0.0.1:7497:7499" # paper
+      - "127.0.0.1:3370:3389" # xrdp
+
+volumes:
+  tws_tmp:
+
+
+==== ./ib-gateway-docker/stable/Dockerfile ====
+
+##############################################################################
+# Setup Stage: install apps
+#
+# This is a dedicated stage so that donwload archives don't end up on
+# production image and consume unnecessary space.
+##############################################################################
+
+FROM ubuntu:22.04 as setup
+
+ENV IB_GATEWAY_VERSION=10.19.2h
+ENV IB_GATEWAY_RELEASE_CHANNEL=stable
+ENV IBC_VERSION=3.18.0
+
+WORKDIR /tmp/setup
+
+# Prepare system
+RUN apt-get update -y && \
+  DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes \
+  curl \
+  ca-certificates \
+  unzip && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* && \
+# Install IB Gateway
+# Use this instead of "RUN curl .." to install a local file:
+#COPY ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh .
+  curl -sSOL https://github.com/gnzsnz/ib-gateway-docker/releases/download/ibgateway-${IB_GATEWAY_RELEASE_CHANNEL}%40${IB_GATEWAY_VERSION}/ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh && \
+  curl -sSOL https://github.com/gnzsnz/ib-gateway-docker/releases/download/ibgateway-${IB_GATEWAY_RELEASE_CHANNEL}%40${IB_GATEWAY_VERSION}/ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh.sha256 && \
+  sha256sum --check ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh.sha256 && \
+  chmod a+x ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh && \
+  ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh -q -dir /root/Jts/ibgateway/${IB_GATEWAY_VERSION} &&\
+  # Install IBC
+  curl -sSOL https://github.com/IbcAlpha/IBC/releases/download/${IBC_VERSION}-Update.1/IBCLinux-${IBC_VERSION}.zip && \
+  mkdir /root/ibc && \
+  unzip ./IBCLinux-${IBC_VERSION}.zip -d /root/ibc && \
+  chmod -R u+x /root/ibc/*.sh && \
+  chmod -R u+x /root/ibc/scripts/*.sh
+
+COPY ./config/ibgateway/jts.ini.tmpl /root/Jts/jts.ini.tmpl
+COPY ./config/ibc/config.ini.tmpl /root/ibc/config.ini.tmpl
+
+# Copy scripts
+COPY ./scripts /root/scripts
+
+##############################################################################
+# Build Stage: build production image
+##############################################################################
+
+FROM ubuntu:22.04
+
+ENV IB_GATEWAY_VERSION=10.19.2h
+# IB Gateway user constants
+ARG USER_ID="${USER_ID:-1000}"
+ARG USER_GID="${USER_GID:-1000}"
+# IBC env vars
+ENV HOME=/home/ibgateway
+ENV TWS_MAJOR_VRSN=${IB_GATEWAY_VERSION}
+ENV TWS_PATH=${HOME}/Jts
+ENV TWS_INI=jts.ini
+ENV IBC_PATH=${HOME}/ibc
+ENV IBC_INI=${HOME}/ibc/config.ini
+ENV SCRIPT_PATH=${HOME}/scripts
+ENV GATEWAY_OR_TWS=gateway
+# Copy files
+COPY --from=setup /usr/local/i4j_jres/ /usr/local/i4j_jres
+COPY --chown=${USER_ID}:${USER_GID} --from=setup /root/ ${HOME}
+
+# Prepare system
+RUN apt-get update -y && \
+  DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes \
+  gettext-base socat xvfb x11vnc sshpass openssh-client && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* && \
+  groupadd --gid ${USER_GID} ibgateway && \
+  useradd -ms /bin/bash --uid ${USER_ID} --gid ${USER_GID} ibgateway && \
+  chmod a+x ${SCRIPT_PATH}/*.sh
+
+USER ${USER_ID}:${USER_GID}
+WORKDIR ${HOME}
+
+# Start run script
+CMD ["/home/ibgateway/scripts/run.sh"]
+
+LABEL org.opencontainers.image.source=https://github.com/gnzsnz/ib-gateway-docker
+LABEL org.opencontainers.image.url=https://github.com/gnzsnz/ib-gateway-docker/pkgs/container/ib-gateway
+LABEL org.opencontainers.image.description="Docker image with IB Gateway and IBC "
+LABEL org.opencontainers.image.licenses="Apache License Version 2.0"
+LABEL org.opencontainers.image.version=${IB_GATEWAY_VERSION}-${IB_GATEWAY_RELEASE_CHANNEL}
+
+
+==== ./ib-gateway-docker/stable/Dockerfile.tws ====
+
+##############################################################################
+# Setup Stage: install apps
+#
+# This is a dedicated stage used as source for needed files.
+#
+##############################################################################
+ARG IB_VERSION=10.19.2h
+FROM ghcr.io/gnzsnz/ib-gateway:${IB_VERSION} as setup
+
+WORKDIR /
+
+##############################################################################
+# Build Stage: build production image
+##############################################################################
+
+FROM lscr.io/linuxserver/rdesktop:ubuntu-xfce
+
+ENV IB_GATEWAY_VERSION=10.19.2h
+ENV IB_GATEWAY_RELEASE_CHANNEL=stable
+ENV IBC_VERSION=3.18.0
+
+# IB Gateway user constants
+# IBC env vars
+ENV TWS_MAJOR_VRSN=${IB_GATEWAY_VERSION}
+ENV TWS_PATH=/opt/ibkr
+ENV TWS_INI=jts.ini
+ENV IBC_PATH=/opt/ibc
+ENV IBC_INI=${IBC_PATH}/config.ini
+ENV SCRIPT_PATH=/defaults
+ENV GATEWAY_OR_TWS=tws
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN \
+  apt-get update -y && \
+  apt-get install --no-install-recommends --yes socat sshpass gettext-base \
+    libnspr4 libnss3 libcrypto++8 xdg-utils xfce4-cpugraph-plugin \
+    xfce4-netload-plugin xfce4-taskmanager xfce4-xkb-plugin xfce4-notes \
+    gvfs gvfs-backends gvfs-fuse && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* # end
+
+# Copy files
+COPY --from=setup /usr/local/i4j_jres/ /usr/local/i4j_jres
+COPY --chown=abc:abc --from=setup /home/ibgateway/Jts ${TWS_PATH}
+COPY --chown=abc:abc --from=setup /home/ibgateway/ibc ${IBC_PATH}
+COPY ./tws-scripts/start_session.sh /custom-services.d/start_session.sh
+COPY ./tws-scripts/run_tws.sh ${SCRIPT_PATH}
+COPY ./scripts/* ${SCRIPT_PATH}
+
+# labels
+LABEL org.opencontainers.image.source=https://github.com/gnzsnz/ib-gateway-docker
+LABEL org.opencontainers.image.url=https://github.com/gnzsnz/ib-gateway-docker/pkgs/container/tws-rdesktop
+LABEL org.opencontainers.image.description="Docker image with XFCE, TWS & IBC"
+LABEL org.opencontainers.image.licenses="Apache License Version 2.0"
+LABEL org.opencontainers.image.version=${IB_GATEWAY_VERSION}-${IB_GATEWAY_RELEASE_CHANNEL}
+
+
+==== ./ib-gateway-docker/stable/tws-scripts/run_tws.sh ====
+
+#!/bin/bash
+# shellcheck shell=bash
+# shellcheck disable=SC1091,SC2317
+
+echo "*************************************************************************"
+echo ".> Starting IBC/TWS"
+echo "*************************************************************************"
+# source common functions
+source "${SCRIPT_PATH}/common.sh"
+
+disable_agents() {
+	## disable ssh and gpg agent
+	# https://docs.xfce.org/xfce/xfce4-session/advanced
+	if [ ! -f /config/.config/disable_agents ]; then
+		echo ".> Disabling ssh-agent and gpg-agent"
+		# disable xfce
+		xfconf-query -c xfce4-session -p /startup/ssh-agent/enabled -n -t bool -s false
+		xfconf-query -c xfce4-session -p /startup/gpg-agent/enabled -n -t bool -s false
+		# kill ssh-agent and gpg-agent
+		pkill -x ssh-agent
+		pkill -x gpg-agent
+		touch /config/.config/disable_agents
+	else
+		echo ".> Found '/config/.config/disable_agents' agents already disabled"
+	fi
+}
+
+# set display
+export DISPLAY=:10
+
+# user id
+echo ".> Running as user"
+id
+
+# disable agents
+disable_agents
+# SSH
+setup_ssh
+# set ports
+set_ports
+# apply settings
+apply_settings
+
+# Java heap size
+set_java_heap
+
+# forward ports, socat or ssh
+"${SCRIPT_PATH}/port_forwarding.sh" &
+
+# start IBC
+echo ".> Starting IBC with params:"
+echo ".>		Version: ${TWS_MAJOR_VRSN}"
+echo ".>		program: ${IBC_COMMAND:-tws}"
+echo ".>		tws-path: ${TWS_PATH}"
+echo ".>		ibc-path: ${IBC_PATH}"
+echo ".>		ibc-init: ${IBC_INI}"
+echo ".>		tws-settings-path: ${TWS_SETTINGS_PATH:-$TWS_PATH}"
+echo ".>		on2fatimeout: ${TWOFA_TIMEOUT_ACTION}"
+
+"${IBC_PATH}"/scripts/ibcstart.sh "${TWS_MAJOR_VRSN}" \
+	"--tws-path=${TWS_PATH}" \
+	"--ibc-path=${IBC_PATH}" "--ibc-ini=${IBC_INI}" \
+	"--on2fatimeout=${TWOFA_TIMEOUT_ACTION}" \
+	"--tws-settings-path=${TWS_SETTINGS_PATH:-$TWS_PATH}" &
+
+pid="$!"
+echo "$pid" >/tmp/pid
+echo ".> IBC's pid: ${pid}"
+
+wait "${pid}"
+exit $?
+
+
+==== ./ib-gateway-docker/stable/tws-scripts/start_session.sh ====
+
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+echo "*************************************************************************"
+echo ".> Launching IBC/TWS service"
+echo "*************************************************************************"
+# shellcheck disable=SC1091
+# source common functions
+source "${SCRIPT_PATH}/common.sh"
+
+# set display
+export DISPLAY=:10
+
+# set user pass
+_PASS=${PASSWD:-abc}
+echo ".> Setting user password"
+echo "abc:$_PASS" | chpasswd
+id
+
+if [ -n "${TZ}" ]; then
+	echo ".> Setting timezone to: ${TZ}"
+	echo "${TZ}" >/etc/timezone
+fi
+
+# open xfce session
+echo ".> Openning Xrdp session"
+echo "${_PASS}" | xrdp-sesrun -s 127.0.0.1 -F 0 abc
+
+# setting permissions
+echo ".> Setting permissions for ${TWS_PATH} and ${IBC_PATH}"
+chown abc:abc -R "${TWS_PATH}" "${IBC_PATH}"
+
+sudo -EH -u abc "${SCRIPT_PATH}/run_tws.sh"
+
+
+==== ./ib-gateway-docker/stable/scripts/run.sh ====
+
+#!/bin/bash
+# shellcheck disable=SC2317
+# Don't warn about unreachable commands in this file
+
+echo "*************************************************************************"
+echo ".> Starting IBC/IB gateway"
+echo "*************************************************************************"
+
+# shellcheck disable=SC1091
+source "${SCRIPT_PATH}/common.sh"
+
+stop_ibc() {
+	echo ".> 😘 Received SIGINT or SIGTERM. Shutting down IB Gateway."
+
+	#
+	if [ -n "$VNC_SERVER_PASSWORD" ]; then
+		echo ".> Stopping x11vnc."
+		pkill x11vnc
+	fi
+	#
+	echo ".> Stopping Xvfb."
+	pkill Xvfb
+	#
+	if [ -n "$SSH_TUNNEL" ]; then
+		echo ".> Stopping ssh."
+		pkill ssh
+	else
+		echo ".> Stopping socat."
+		pkill socat
+	fi
+	# Get PID
+	local pid
+	pid=$(</tmp/pid)
+	# Set TERM
+	echo ".> Stopping IBC."
+	kill -SIGTERM "${pid}"
+	# Wait for exit
+	wait "${pid}"
+	# All done.
+	echo ".> Done... $?"
+}
+
+start_xvfb() {
+	# start Xvfb
+	echo ".> Starting Xvfb server"
+	DISPLAY=:1
+	export DISPLAY
+	rm -f /tmp/.X1-lock
+	Xvfb $DISPLAY -ac -screen 0 1024x768x16 &
+}
+
+start_vnc() {
+	# start VNC server
+	if [ -n "$VNC_SERVER_PASSWORD" ]; then
+		echo ".> Starting VNC server"
+		"${SCRIPT_PATH}/run_x11_vnc.sh" &
+	else
+		echo ".> VNC server disabled"
+	fi
+}
+
+# start Xvfb
+start_xvfb
+
+# setup SSH Tunnel
+setup_ssh
+
+# start VNC server
+start_vnc
+
+# apply settings
+apply_settings
+
+# set API and socat ports
+set_ports
+
+# Java heap size
+set_java_heap
+
+# forward ports, socat or ssh
+"${SCRIPT_PATH}/port_forwarding.sh" &
+
+echo ".> Starting IBC with params:"
+echo ".>		Version: ${TWS_MAJOR_VRSN}"
+echo ".>		program: ${IBC_COMMAND:-gateway}"
+echo ".>		tws-path: ${TWS_PATH}"
+echo ".>		ibc-path: ${IBC_PATH}"
+echo ".>		ibc-init: ${IBC_INI}"
+echo ".>		tws-settings-path: ${TWS_SETTINGS_PATH:-$TWS_PATH}"
+echo ".>		on2fatimeout: ${TWOFA_TIMEOUT_ACTION}"
+# start IBC -g for gateway
+"${IBC_PATH}/scripts/ibcstart.sh" "${TWS_MAJOR_VRSN}" -g \
+	"--tws-path=${TWS_PATH}" \
+	"--ibc-path=${IBC_PATH}" "--ibc-ini=${IBC_INI}" \
+	"--on2fatimeout=${TWOFA_TIMEOUT_ACTION}" \
+	"--tws-settings-path=${TWS_SETTINGS_PATH:-}" &
+
+pid="$!"
+echo "$pid" >/tmp/pid
+trap stop_ibc SIGINT SIGTERM
+wait "${pid}"
+exit $?
+
+
+==== ./ib-gateway-docker/stable/scripts/port_forwarding.sh ====
+
+#!/bin/bash
+
+# validate API port
+if [ -z "${API_PORT}" ]; then
+	echo ".> API_PORT not set, port: ${API_PORT}"
+	exit 1
+fi
+
+if [ "$SSH_TUNNEL" = "yes" ]; then
+
+	if [ -n "$(pgrep -x ssh)" ]; then
+		# if this script is already running don't start it
+		echo ".> SSH tunnel already active. Not starting a new one"
+		exit 0
+	fi
+
+	if [ -z "$SSH_REMOTE_PORT" ]; then
+		# by default remote port is same than API_PORT
+		SSH_REMOTE_PORT="$API_PORT"
+	fi
+	echo ".> SSH_REMOTE_PORT set to :${SSH_REMOTE_PORT}"
+
+	# set vnc ssh tunnel
+	if [ "$GATEWAY_OR_TWS" = "gateway" ] && [ -n "$SSH_VNC_PORT" ] && [ -n "$VNC_SERVER_PASSWORD" ]; then
+		# set ssh tunnel for vnc
+		SSH_SCREEN="-R 127.0.0.1:5900:localhost:$SSH_VNC_PORT"
+		echo ".> SSH_VNC_TUNNEL set to :${SSH_SCREEN}"
+	fi
+
+	# set rdp ssh tunnel
+	if [ "$GATEWAY_OR_TWS" = "tws" ] && [ -n "$SSH_RDP_PORT" ]; then
+		# set ssh tunnel for rdp
+		SSH_SCREEN="-R 127.0.0.1:3389:localhost:$SSH_RDP_PORT"
+		echo ".> SSH_RDP_TUNNEL set to :${SSH_SCREEN}"
+	fi
+
+	while true; do
+		echo ".> Starting ssh tunnel with ssh sock: $SSH_AUTH_SOCK"
+		bash -c "ssh ${SSH_ALL_OPTIONS} -TNR 127.0.0.1:${API_PORT}:localhost:${SSH_REMOTE_PORT} ${SSH_SCREEN:-} ${SSH_USER_TUNNEL}"
+		sleep "${SSH_RESTART:-5}"
+	done
+else
+	if [ -z "${SOCAT_PORT}" ]; then
+		echo ".> SOCAT_PORT not set, port: ${SOCAT_PORT}"
+		exit 1
+	fi
+	if [ -n "$(pgrep -x socat)" ]; then
+		# if this script is already running don't start it
+		echo ".> socat already active. Not starting a new one"
+		exit 0
+	fi
+	# no ssh tunnel, start socat
+	echo ".> Waiting for socat to start"
+	sleep 30
+
+	#
+	printf "Forking :::%d onto 0.0.0.0:%d > trading mode %s \n" \
+		"${API_PORT}" "${SOCAT_PORT}" "${TRADING_MODE}"
+	socat TCP-LISTEN:"${SOCAT_PORT}",fork TCP:127.0.0.1:"${API_PORT}"
+fi
+
+
+==== ./ib-gateway-docker/stable/scripts/common.sh ====
+
+#!/bin/bash
+# shellcheck disable=SC1091
+
+setup_ssh() {
+	# setup SSH Tunnel
+	if [ "$SSH_TUNNEL" = "yes" ]; then
+		echo ".> Setting SSH tunnel"
+
+		_SSH_OPTIONS="-o ServerAliveInterval=${SSH_ALIVE_INTERVAL:-20}"
+		_SSH_OPTIONS+=" -o ServerAliveCountMax=${SSH_ALIVE_COUNT:-3}"
+
+		if [ -n "$SSH_OPTIONS" ]; then
+			_SSH_OPTIONS+=" $SSH_OPTIONS"
+		fi
+		SSH_ALL_OPTIONS="$_SSH_OPTIONS"
+		export SSH_ALL_OPTIONS
+		echo ".> SSH options: $SSH_ALL_OPTIONS"
+
+		if [ -n "$SSH_PASSPHRASE" ]; then
+			if ! pgrep ssh-agent >/dev/null; then
+				# start agent if it's not already running
+				# https://wiki.archlinux.org/title/SSH_keys#SSH_agents
+				echo ".> Starting ssh-agent."
+				ssh-agent >"${HOME}/.ssh-agent.env"
+				source "${HOME}/.ssh-agent.env"
+				echo ".> ssh-agent sock: ${SSH_AUTH_SOCK}"
+			else
+				echo ".> ssh-agent already running"
+				if [ -z "${SSH_AUTH_SOCK}" ]; then
+					echo ".> Loading agent environment"
+					source "${HOME}/.ssh-agent.env"
+				fi
+				echo ".> ssh-agent sock: ${SSH_AUTH_SOCK}"
+			fi
+
+			echo ".> Adding keys to ssh-agent."
+			export SSH_ASKPASS_REQUIRE=never
+			SSHPASS="${SSH_PASSPHRASE}" sshpass -e -P "passphrase" ssh-add
+			echo ".> ssh-agent identities: $(ssh-add -l)"
+		fi
+	else
+		echo ".> SSH tunnel disabled"
+	fi
+}
+
+apply_settings() {
+	# apply env variables into IBC and gateway/TWS config files
+	if [ "$CUSTOM_CONFIG" != "yes" ]; then
+		echo ".> Appling settings to IBC's config.ini"
+		# replace env variables
+		envsubst <"${IBC_INI}.tmpl" >"${IBC_INI}"
+
+		# where are settings stored
+		if [ -n "$TWS_SETTINGS_PATH" ]; then
+			echo ".> Settings directory set to: $TWS_SETTINGS_PATH"
+			_JTS_PATH=$TWS_SETTINGS_PATH
+			if [ ! -d "$TWS_SETTINGS_PATH" ]; then
+				# if TWS_SETTINGS_PATH does not exists, create it
+				echo ".> Creating directory: $TWS_SETTINGS_PATH"
+				mkdir "$TWS_SETTINGS_PATH"
+			fi
+		else
+			echo ".> Settings directory NOT set, defaulting to: $TWS_PATH"
+			_JTS_PATH=$TWS_PATH
+		fi
+		# only if jts.ini does not exists
+		if [ ! -f "$_JTS_PATH/$TWS_INI" ]; then
+			echo ".> Setting timezone in ${_JTS_PATH}/${TWS_INI}"
+			envsubst <"${TWS_PATH}/${TWS_INI}.tmpl" >"${_JTS_PATH}/${TWS_INI}"
+		else
+			echo ".> File jts.ini already exists, not setting timezone"
+		fi
+	else
+		echo ".> Using CUSTOM_CONFIG, (value:${CUSTOM_CONFIG})"
+	fi
+}
+
+set_ports() {
+	# set ports for API and SOCAT
+
+	# ibgateway ports
+	if [ "${GATEWAY_OR_TWS}" = "gateway" ]; then
+		if [ "$TRADING_MODE" = "paper" ]; then
+			# paper ibgateway ports
+			API_PORT=4002
+			SOCAT_PORT=4004
+			export API_PORT SOCAT_PORT
+		elif [ "$TRADING_MODE" = "live" ]; then
+			# live ibgateway ports
+			API_PORT=4001
+			SOCAT_PORT=4003
+			export API_PORT SOCAT_PORT
+		else
+			# invalid option
+			echo ".> Invalid TRADING_MODE: $TRADING_MODE"
+			exit 1
+		fi
+	elif [ "${GATEWAY_OR_TWS}" = "tws" ]; then
+		if [ "$TRADING_MODE" = "paper" ]; then
+			# paper TWS ports
+			API_PORT=7497
+			SOCAT_PORT=7499
+			export API_PORT SOCAT_PORT
+		elif [ "$TRADING_MODE" = "live" ]; then
+			# live TWS ports
+			API_PORT=7496
+			SOCAT_PORT=7498
+			export API_PORT SOCAT_PORT
+		else
+			# invalid option
+			echo ".> Invalid TRADING_MODE: $TRADING_MODE"
+			exit 1
+		fi
+	fi
+	echo ".> API_PORT set to: ${API_PORT}"
+	echo ".> SOCAT_PORT set to: ${SOCAT_PORT}"
+
+}
+
+set_java_heap() {
+	if [ -n "${JAVA_HEAP_SIZE}" ]; then
+		_vmpath="${TWS_PATH}/ibgateway/${IB_GATEWAY_VERSION}"
+		_string="s/-Xmx768m/-Xmx${JAVA_HEAP_SIZE}m/g"
+		sed -i "${_string}" "${_vmpath}/ibgateway.vmoptions"
+		echo ".> Java heap size set to ${JAVA_HEAP_SIZE}m"
+	else
+		echo ".> Usign default Java heap size 768m."
+	fi
+}
+
+
+==== ./ib-gateway-docker/stable/scripts/run_x11_vnc.sh ====
+
+#!/bin/bash
+
+x11vnc -ncache_cr -display :1 -forever -shared -bg -noipv6 -passwd "$VNC_SERVER_PASSWORD"
+
+
+==== ./ib-gateway-docker/latest/Dockerfile ====
+
+##############################################################################
+# Setup Stage: install apps
+#
+# This is a dedicated stage so that donwload archives don't end up on
+# production image and consume unnecessary space.
+##############################################################################
+
+FROM ubuntu:22.04 as setup
+
+ENV IB_GATEWAY_VERSION=10.27.1c
+ENV IB_GATEWAY_RELEASE_CHANNEL=latest
+ENV IBC_VERSION=3.18.0
+
+WORKDIR /tmp/setup
+
+# Prepare system
+RUN apt-get update -y && \
+  DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes \
+  curl \
+  ca-certificates \
+  unzip && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* && \
+  if [ "$(uname -m)" = "aarch64" ]; then \
+    export URL="https://download.bell-sw.com/java/11.0.22+12/bellsoft-jre11.0.22+12-linux-aarch64-full.tar.gz" ; \
+    export ARCHIVE_NAME="bellsoft-jre11.0.22+12-linux-aarch64-full.tar.gz" ; \
+    export JVM_DIR="jre-11.0.22-full" ; \
+    curl -sSOL $URL ; \
+    tar -xvzf $ARCHIVE_NAME; \
+    mv $JVM_DIR /opt/java ; \
+    export JAVA_HOME=/opt/java ; \
+    export PATH=$JAVA_HOME/bin:$PATH ; \
+    fi && \
+# Install IB Gateway
+# Use this instead of "RUN curl .." to install a local file:
+#COPY ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh .
+  curl -sSOL https://github.com/gnzsnz/ib-gateway-docker/releases/download/ibgateway-${IB_GATEWAY_RELEASE_CHANNEL}%40${IB_GATEWAY_VERSION}/ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh && \
+  curl -sSOL https://github.com/gnzsnz/ib-gateway-docker/releases/download/ibgateway-${IB_GATEWAY_RELEASE_CHANNEL}%40${IB_GATEWAY_VERSION}/ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh.sha256 && \
+  sha256sum --check ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh.sha256 && \
+  chmod a+x ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh && \
+  if [ "$(uname -m)" = "aarch64" ]; then \
+    sed -i 's/-Djava.ext.dirs="$app_java_home\/lib\/ext:$app_java_home\/jre\/lib\/ext"/--add-modules=ALL-MODULE-PATH/g' "ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh" ; \
+    app_java_home=/opt/java ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh -q -dir /root/Jts/ibgateway/${IB_GATEWAY_VERSION} ; \
+  else \
+    ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh -q -dir /root/Jts/ibgateway/${IB_GATEWAY_VERSION} ; \
+  fi && \
+  # Install IBC
+  curl -sSOL https://github.com/IbcAlpha/IBC/releases/download/${IBC_VERSION}-Update.1/IBCLinux-${IBC_VERSION}.zip && \
+  mkdir /root/ibc && \
+  unzip ./IBCLinux-${IBC_VERSION}.zip -d /root/ibc && \
+  chmod -R u+x /root/ibc/*.sh && \
+  chmod -R u+x /root/ibc/scripts/*.sh
+
+COPY ./config/ibgateway/jts.ini.tmpl /root/Jts/jts.ini.tmpl
+COPY ./config/ibc/config.ini.tmpl /root/ibc/config.ini.tmpl
+
+# Copy scripts
+COPY ./scripts /root/scripts
+
+##############################################################################
+# Build Stage: build production image
+##############################################################################
+
+FROM ubuntu:22.04
+
+ENV IB_GATEWAY_VERSION=10.27.1c
+# IB Gateway user constants
+ARG USER_ID="${USER_ID:-1000}"
+ARG USER_GID="${USER_GID:-1000}"
+# IBC env vars
+ENV HOME=/home/ibgateway
+ENV TWS_MAJOR_VRSN=${IB_GATEWAY_VERSION}
+ENV TWS_PATH=${HOME}/Jts
+ENV TWS_INI=jts.ini
+ENV TWS_INI_TMPL=${TWS_INI}.tmpl
+ENV IBC_PATH=${HOME}/ibc
+ENV IBC_INI=${HOME}/ibc/config.ini
+ENV IBC_INI_TMPL=${IBC_INI}.tmpl
+ENV SCRIPT_PATH=${HOME}/scripts
+ENV GATEWAY_OR_TWS=gateway
+# Copy files
+COPY --from=setup /usr/local /usr/local
+COPY --chown=${USER_ID}:${USER_GID} --from=setup /root/ ${HOME}
+# if aarch64 java is there get it
+COPY --from=setup /opt /opt
+
+
+# Prepare system
+RUN apt-get update -y && \
+  apt-get upgrade -y && \
+  DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes \
+  gettext-base socat xvfb x11vnc sshpass openssh-client && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* && \
+  groupadd --gid ${USER_GID} ibgateway && \
+  useradd -ms /bin/bash --uid ${USER_ID} --gid ${USER_GID} ibgateway && \
+  chmod a+x ${SCRIPT_PATH}/*.sh
+
+USER ${USER_ID}:${USER_GID}
+WORKDIR ${HOME}
+
+# Start run script
+CMD ["/home/ibgateway/scripts/run.sh"]
+
+LABEL org.opencontainers.image.source=https://github.com/gnzsnz/ib-gateway-docker
+LABEL org.opencontainers.image.url=https://github.com/gnzsnz/ib-gateway-docker/pkgs/container/ib-gateway
+LABEL org.opencontainers.image.description="Docker image with IB Gateway and IBC "
+LABEL org.opencontainers.image.licenses="Apache License Version 2.0"
+LABEL org.opencontainers.image.version=${IB_GATEWAY_VERSION}-${IB_GATEWAY_RELEASE_CHANNEL}
+
+
+==== ./ib-gateway-docker/latest/Dockerfile.tws ====
+
+##############################################################################
+# Setup Stage: install apps
+#
+# This is a dedicated stage used as source for needed files.
+#
+##############################################################################
+ARG IB_VERSION=10.27.1c
+FROM ghcr.io/gnzsnz/ib-gateway:${IB_VERSION} as setup
+
+WORKDIR /
+
+##############################################################################
+# Build Stage: build production image
+##############################################################################
+
+FROM lscr.io/linuxserver/rdesktop:ubuntu-xfce
+
+ENV IB_GATEWAY_VERSION=10.27.1c
+ENV IB_GATEWAY_RELEASE_CHANNEL=latest
+ENV IBC_VERSION=3.18.0
+
+# IB Gateway user constants
+# IBC env vars
+ENV TWS_MAJOR_VRSN=${IB_GATEWAY_VERSION}
+ENV TWS_PATH=/opt/ibkr
+ENV TWS_INI=jts.ini
+ENV TWS_INI_TMPL=${TWS_INI}.tmpl
+ENV IBC_PATH=/opt/ibc
+ENV IBC_INI=${IBC_PATH}/config.ini
+ENV IBC_INI_TMPL=${IBC_INI}.tmpl
+ENV SCRIPT_PATH=/defaults
+ENV GATEWAY_OR_TWS=tws
+ENV NO_AT_BRIDGE=1
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN \
+  apt-get update -y && \
+  apt-get upgrade -y && \
+  apt-get install --no-install-recommends --yes socat sshpass gettext-base \
+    libnspr4 libnss3 libcrypto++8 xdg-utils xfce4-cpugraph-plugin \
+    xfce4-netload-plugin xfce4-taskmanager xfce4-xkb-plugin xfce4-notes \
+    gvfs gvfs-backends gvfs-fuse && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* # end
+
+# Copy files
+COPY --from=setup /usr/local/i4j_jres/ /usr/local/i4j_jres
+COPY --chown=abc:abc --from=setup /home/ibgateway/Jts ${TWS_PATH}
+COPY --chown=abc:abc --from=setup /home/ibgateway/ibc ${IBC_PATH}
+COPY ./tws-scripts/start_session.sh /custom-services.d/start_session.sh
+COPY ./tws-scripts/run_tws.sh ${SCRIPT_PATH}
+COPY ./scripts/* ${SCRIPT_PATH}
+
+# labels
+LABEL org.opencontainers.image.source=https://github.com/gnzsnz/ib-gateway-docker
+LABEL org.opencontainers.image.url=https://github.com/gnzsnz/ib-gateway-docker/pkgs/container/tws-rdesktop
+LABEL org.opencontainers.image.description="Docker image with XFCE, TWS & IBC"
+LABEL org.opencontainers.image.licenses="Apache License Version 2.0"
+LABEL org.opencontainers.image.version=${IB_GATEWAY_VERSION}-${IB_GATEWAY_RELEASE_CHANNEL}
+
+
+==== ./ib-gateway-docker/latest/tws-scripts/run_tws.sh ====
+
+#!/bin/bash
+# shellcheck shell=bash
+# shellcheck disable=SC1091,SC2317,SC2034
+
+echo "*************************************************************************"
+echo ".> Starting IBC/TWS"
+echo "*************************************************************************"
+# source common functions
+source "${SCRIPT_PATH}/common.sh"
+
+disable_agents() {
+	## disable ssh and gpg agent
+	# https://docs.xfce.org/xfce/xfce4-session/advanced
+	if [ ! -f /config/.config/disable_agents ]; then
+		echo ".> Disabling ssh-agent and gpg-agent"
+		# disable xfce
+		xfconf-query -c xfce4-session -p /startup/ssh-agent/enabled -n -t bool -s false
+		xfconf-query -c xfce4-session -p /startup/gpg-agent/enabled -n -t bool -s false
+		# kill ssh-agent and gpg-agent
+		pkill -x ssh-agent
+		pkill -x gpg-agent
+		touch /config/.config/disable_agents
+	else
+		echo ".> Found '/config/.config/disable_agents' agents already disabled"
+	fi
+}
+
+disable_compositing() {
+	# disable compositing
+	# https://github.com/gnzsnz/ib-gateway-docker/issues/55
+	echo ".> Disabling xfce compositing"
+	xfconf-query --channel=xfwm4 --property=/general/use_compositing --type=bool --set=false --create
+}
+
+start_IBC() {
+	echo ".> Starting IBC in ${TRADING_MODE} mode, with params:"
+	echo ".>		Version: ${TWS_MAJOR_VRSN}"
+	echo ".>		program: ${IBC_COMMAND:-gateway}"
+	echo ".>		tws-path: ${TWS_PATH}"
+	echo ".>		ibc-path: ${IBC_PATH}"
+	echo ".>		ibc-init: ${IBC_INI}"
+	echo ".>		tws-settings-path: ${TWS_SETTINGS_PATH:-$TWS_PATH}"
+	echo ".>		on2fatimeout: ${TWOFA_TIMEOUT_ACTION}"
+	# start IBC
+	"${IBC_PATH}/scripts/ibcstart.sh" "${TWS_MAJOR_VRSN}" \
+		"--tws-path=${TWS_PATH}" \
+		"--ibc-path=${IBC_PATH}" "--ibc-ini=${IBC_INI}" \
+		"--on2fatimeout=${TWOFA_TIMEOUT_ACTION}" \
+		"--tws-settings-path=${TWS_SETTINGS_PATH:-}" &
+	_p="$!"
+	pid+=("$_p")
+	export pid
+	echo "$_p" >"/tmp/pid_${TRADING_MODE}"
+}
+
+start_process() {
+	# set API and socat ports
+	set_ports
+	# apply settings
+	apply_settings
+	# forward ports, socat/ssh
+	port_forwarding
+
+	start_IBC
+}
+
+###############################################################################
+#####		Common Start
+###############################################################################
+# set display
+export DISPLAY=:10
+
+# user id
+echo ".> Running as user"
+id
+# disable agents
+disable_agents
+# disable compositing
+disable_compositing
+# SSH
+setup_ssh
+# Java heap size
+set_java_heap
+
+###############################################################################
+#####		Paper, Live or both start process
+###############################################################################
+if [ "$TRADING_MODE" == "both" ] || [ "$DUAL_MODE" == "yes" ]; then
+	# start live and paper
+	DUAL_MODE=yes
+	export DUAL_MODE
+	# start live first
+	TRADING_MODE=live
+	# add _live subfix
+	_IBC_INI="${IBC_INI}"
+	export _IBC_INI
+	IBC_INI="${_IBC_INI}_${TRADING_MODE}"
+	if [ -n "$TWS_SETTINGS_PATH" ]; then
+		_TWS_SETTINGS_PATH="${TWS_SETTINGS_PATH}"
+		export _TWS_SETTINGS_PATH
+		TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+	else
+		# no TWS settings
+		_TWS_SETTINGS_PATH="${TWS_PATH}"
+		export _TWS_SETTINGS_PATH
+		TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+	fi
+fi
+
+start_process
+
+if [ "$DUAL_MODE" == "yes" ]; then
+	# running dual mode, start paper
+	TRADING_MODE=paper
+	TWS_USERID="${TWS_USERID_PAPER}"
+	export TWS_USERID
+	TWS_PASSWORD="${TWS_PASSWORD_PAPER}"
+	export TWS_PASSWORD
+	# disable duplicate ssh for vnc/rdp
+	SSH_VNC_PORT=
+	export SSH_VNC_PORT
+	SSH_RDP_PORT=
+	export SSH_RDP_PORT
+	# in dual mode, ssh remote always == api port
+	SSH_REMOTE_PORT=
+	export SSH_REMOTE_PORT
+	#
+	IBC_INI="${_IBC_INI}_${TRADING_MODE}"
+	TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+
+	sleep 15
+	start_process
+fi
+
+wait "${pid[@]}"
+_wait="$?"
+echo ".> ************************** End run_tws.sh ******************************** <."
+exit "$_wait"
+
+
+==== ./ib-gateway-docker/latest/tws-scripts/start_session.sh ====
+
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+echo "*************************************************************************"
+echo ".> Launching IBC/TWS service"
+echo "*************************************************************************"
+# shellcheck disable=SC1091
+# source common functions
+source "${SCRIPT_PATH}/common.sh"
+
+# set display
+export DISPLAY=:10
+
+# set user pass
+_PASS=${PASSWD:-abc}
+echo ".> Setting user password"
+echo "abc:$_PASS" | chpasswd
+id
+
+if [ -n "${TZ}" ]; then
+	echo ".> Setting timezone to: ${TZ}"
+	echo "${TZ}" >/etc/timezone
+fi
+
+# open xfce session
+echo ".> Openning Xrdp session"
+echo "${_PASS}" | xrdp-sesrun -s 127.0.0.1 -F 0 abc
+
+# setting permissions
+echo ".> Setting permissions for ${TWS_PATH} and ${IBC_PATH}"
+chown abc:abc -R /opt "${TWS_PATH}" "${IBC_PATH}"
+
+sudo -EH -u abc "${SCRIPT_PATH}/run_tws.sh"
+
+
+==== ./ib-gateway-docker/latest/scripts/run_ssh.sh ====
+
+#!/bin/bash
+
+_OPTIONS="$SSH_ALL_OPTIONS"
+_LOCAL_PORT="$API_PORT"
+_REMOTE_PORT="$SSH_REMOTE_PORT"
+_SCREEN="$SSH_SCREEN"
+_USER_TUNNEL="$SSH_USER_TUNNEL"
+_RESTART="$SSH_RESTART"
+
+while true; do
+	echo ".> Starting ssh tunnel with ssh sock: $SSH_AUTH_SOCK"
+	bash -c "ssh ${_OPTIONS} -TNR 127.0.0.1:${_LOCAL_PORT}:localhost:${_REMOTE_PORT} ${_SCREEN:-} ${_USER_TUNNEL}"
+	sleep "${_RESTART:-5}"
+done
+
+
+==== ./ib-gateway-docker/latest/scripts/run.sh ====
+
+#!/bin/bash
+# shellcheck disable=SC2317
+# Don't warn about unreachable commands in this file
+
+echo "*************************************************************************"
+echo ".> Starting IBC/IB gateway"
+echo "*************************************************************************"
+
+# shellcheck disable=SC1091
+source "${SCRIPT_PATH}/common.sh"
+
+stop_ibc() {
+	echo ".> 😘 Received SIGINT or SIGTERM. Shutting down IB Gateway."
+
+	#
+	if [ -n "$VNC_SERVER_PASSWORD" ]; then
+		echo ".> Stopping x11vnc."
+		pkill x11vnc
+	fi
+	#
+	echo ".> Stopping Xvfb."
+	pkill Xvfb
+	#
+	if [ -n "$SSH_TUNNEL" ]; then
+		echo ".> Stopping ssh."
+		pkill run_ssh.sh
+		pkill ssh
+		echo ".> Stopping socat."
+		pkill run_socat.sh
+		pkill socat
+	else
+		echo ".> Stopping socat."
+		pkill run_socat.sh
+		pkill socat
+	fi
+	# Set TERM
+	echo ".> Stopping IBC."
+	kill -SIGTERM "${pid[@]}"
+	# Wait for exit
+	wait "${pid[@]}"
+	# All done.
+	echo ".> Done... $?"
+}
+
+start_xvfb() {
+	# start Xvfb
+	echo ".> Starting Xvfb server"
+	DISPLAY=:1
+	export DISPLAY
+	rm -f /tmp/.X1-lock
+	Xvfb $DISPLAY -ac -screen 0 1024x768x16 &
+}
+
+start_vnc() {
+	# start VNC server
+	if [ -n "$VNC_SERVER_PASSWORD" ]; then
+		echo ".> Starting VNC server"
+		x11vnc -ncache_cr -display :1 -forever -shared -bg -noipv6 -passwd "$VNC_SERVER_PASSWORD" &
+	else
+		echo ".> VNC server disabled"
+	fi
+}
+
+start_IBC() {
+	echo ".> Starting IBC in ${TRADING_MODE} mode, with params:"
+	echo ".>		Version: ${TWS_MAJOR_VRSN}"
+	echo ".>		program: ${IBC_COMMAND:-gateway}"
+	echo ".>		tws-path: ${TWS_PATH}"
+	echo ".>		ibc-path: ${IBC_PATH}"
+	echo ".>		ibc-init: ${IBC_INI}"
+	echo ".>		tws-settings-path: ${TWS_SETTINGS_PATH:-$TWS_PATH}"
+	echo ".>		on2fatimeout: ${TWOFA_TIMEOUT_ACTION}"
+	# start IBC -g for gateway
+	"${IBC_PATH}/scripts/ibcstart.sh" "${TWS_MAJOR_VRSN}" -g \
+		"--tws-path=${TWS_PATH}" \
+		"--ibc-path=${IBC_PATH}" "--ibc-ini=${IBC_INI}" \
+		"--on2fatimeout=${TWOFA_TIMEOUT_ACTION}" \
+		"--tws-settings-path=${TWS_SETTINGS_PATH:-}" &
+	_p="$!"
+	pid+=("$_p")
+	export pid
+	echo "$_p" >"/tmp/pid_${TRADING_MODE}"
+}
+
+start_process() {
+	# set API and socat ports
+	set_ports
+	# apply settings
+	apply_settings
+	# forward ports, socat/ssh
+	port_forwarding
+
+	start_IBC
+}
+
+###############################################################################
+#####		Common Start
+###############################################################################
+# start Xvfb
+start_xvfb
+
+# setup SSH Tunnel
+setup_ssh
+
+# Java heap size
+set_java_heap
+
+# start VNC server
+start_vnc
+
+###############################################################################
+#####		Paper, Live or both start process
+###############################################################################
+
+if [ "$TRADING_MODE" == "both" ] || [ "$DUAL_MODE" == "yes" ]; then
+	# start live and paper
+	DUAL_MODE=yes
+	export DUAL_MODE
+	# start live first
+	TRADING_MODE=live
+	# add _live subfix
+	_IBC_INI="${IBC_INI}"
+	export _IBC_INI
+	IBC_INI="${_IBC_INI}_${TRADING_MODE}"
+	if [ -n "$TWS_SETTINGS_PATH" ]; then
+		_TWS_SETTINGS_PATH="${TWS_SETTINGS_PATH}"
+		export _TWS_SETTINGS_PATH
+		TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+	else
+		# no TWS settings
+		_TWS_SETTINGS_PATH="${TWS_PATH}"
+		export _TWS_SETTINGS_PATH
+		TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+	fi
+fi
+
+start_process
+
+if [ "$DUAL_MODE" == "yes" ]; then
+	# running dual mode, start paper
+	TRADING_MODE=paper
+	TWS_USERID="${TWS_USERID_PAPER}"
+	export TWS_USERID
+	TWS_PASSWORD="${TWS_PASSWORD_PAPER}"
+	export TWS_PASSWORD
+	# disable duplicate ssh for vnc/rdp
+	SSH_VNC_PORT=
+	export SSH_VNC_PORT
+	# in dual mode, ssh remote always == api port
+	SSH_REMOTE_PORT=
+	export SSH_REMOTE_PORT
+	#
+	IBC_INI="${_IBC_INI}_${TRADING_MODE}"
+	TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+
+	sleep 15
+	start_process
+fi
+
+trap stop_ibc SIGINT SIGTERM
+wait "${pid[@]}"
+exit $?
+
+
+==== ./ib-gateway-docker/latest/scripts/port_forwarding.sh ====
+
+#!/bin/bash
+
+start_ssh() {
+	if [ -n "$(pgrep -x ssh)" ]; then
+		# if this script is already running don't start it
+		echo ".> SSH tunnel already active. Not starting a new one"
+		exit 0
+	fi
+
+	if [ -z "$SSH_REMOTE_PORT" ]; then
+		# by default remote port is same than API_PORT
+		SSH_REMOTE_PORT="$API_PORT"
+	fi
+	echo ".> SSH_REMOTE_PORT set to :${SSH_REMOTE_PORT}"
+
+	# set vnc ssh tunnel
+	if [ "$GATEWAY_OR_TWS" = "gateway" ] && [ -n "$SSH_VNC_PORT" ] && [ -n "$VNC_SERVER_PASSWORD" ]; then
+		# set ssh tunnel for vnc
+		SSH_SCREEN="-R 127.0.0.1:5900:localhost:$SSH_VNC_PORT"
+		echo ".> SSH_VNC_TUNNEL set to :${SSH_SCREEN}"
+	fi
+
+	# set rdp ssh tunnel
+	if [ "$GATEWAY_OR_TWS" = "tws" ] && [ -n "$SSH_RDP_PORT" ]; then
+		# set ssh tunnel for rdp
+		SSH_SCREEN="-R 127.0.0.1:3389:localhost:$SSH_RDP_PORT"
+		echo ".> SSH_RDP_TUNNEL set to :${SSH_SCREEN}"
+	fi
+
+	if [ "$SSH_TUNNEL" = "both" ]; then
+		start_socat
+	fi
+
+	while true; do
+		echo ".> Starting ssh tunnel with ssh sock: $SSH_AUTH_SOCK"
+		bash -c "ssh ${SSH_ALL_OPTIONS} -TNR 127.0.0.1:${API_PORT}:localhost:${SSH_REMOTE_PORT} ${SSH_SCREEN:-} ${SSH_USER_TUNNEL}"
+		sleep "${SSH_RESTART:-5}"
+	done
+}
+
+start_socat() {
+	if [ -z "${SOCAT_PORT}" ]; then
+		echo ".> SOCAT_PORT not set, port: ${SOCAT_PORT}"
+		exit 1
+	fi
+	if [ -n "$(pgrep -x socat)" ]; then
+		# if this script is already running don't start it
+		echo ".> socat already active. Not starting a new one"
+		exit 0
+	fi
+	# no ssh tunnel, start socat
+	echo ".> Waiting for socat to start"
+	sleep 30
+
+	#
+	printf "Forking :::%d onto 0.0.0.0:%d > trading mode %s \n" \
+		"${API_PORT}" "${SOCAT_PORT}" "${TRADING_MODE}"
+	socat TCP-LISTEN:"${SOCAT_PORT}",fork TCP:127.0.0.1:"${API_PORT}" &
+}
+
+# validate API port
+if [ -z "${API_PORT}" ]; then
+	echo ".> API_PORT not set, port: ${API_PORT}"
+	exit 1
+fi
+
+if [ "$SSH_TUNNEL" = "yes" ] || [ "$SSH_TUNNEL" = "both" ]; then
+	start_ssh
+else
+	start_socat
+fi
+
+
+==== ./ib-gateway-docker/latest/scripts/run_socat.sh ====
+
+#!/bin/bash
+
+LOCAL_PORT="$API_PORT"
+# shellcheck disable=SC2153
+PUBLISHED_PORT="$SOCAT_PORT"
+_RESTART="$SSH_RESTART"
+
+while true; do
+	printf "Forking :::%d onto 0.0.0.0:%d > trading mode %s \n" \
+		"${LOCAL_PORT}" "${PUBLISHED_PORT}" "${TRADING_MODE}"
+	socat TCP-LISTEN:"${PUBLISHED_PORT}",fork TCP:127.0.0.1:"${LOCAL_PORT}"
+	sleep "${_RESTART:-5}"
+done
+
+
+==== ./ib-gateway-docker/latest/scripts/common.sh ====
+
+#!/bin/bash
+# shellcheck disable=SC1091
+
+apply_settings() {
+	# apply env variables into IBC and gateway/TWS config files
+	if [ "$CUSTOM_CONFIG" != "yes" ]; then
+		echo ".> Appling settings to IBC's config.ini"
+		# replace env variables
+		envsubst <"${IBC_INI_TMPL}" >"${IBC_INI}"
+
+		# where are settings stored
+		if [ -n "$TWS_SETTINGS_PATH" ]; then
+			echo ".> Settings directory set to: $TWS_SETTINGS_PATH"
+			_JTS_PATH=$TWS_SETTINGS_PATH
+			if [ ! -d "$TWS_SETTINGS_PATH" ]; then
+				# if TWS_SETTINGS_PATH does not exists, create it
+				echo ".> Creating directory: $TWS_SETTINGS_PATH"
+				mkdir "$TWS_SETTINGS_PATH"
+			fi
+		else
+			echo ".> Settings directory NOT set, defaulting to: $TWS_PATH"
+			_JTS_PATH=$TWS_PATH
+		fi
+		# only if jts.ini does not exists
+		if [ ! -f "$_JTS_PATH/$TWS_INI" ]; then
+			echo ".> Setting timezone in ${_JTS_PATH}/${TWS_INI}"
+			envsubst <"${TWS_PATH}/${TWS_INI_TMPL}" >"${_JTS_PATH}/${TWS_INI}"
+		else
+			echo ".> File jts.ini already exists, not setting timezone"
+		fi
+	else
+		echo ".> Using CUSTOM_CONFIG, (value:${CUSTOM_CONFIG})"
+	fi
+}
+
+set_ports() {
+	# set ports for API and SOCAT
+
+	# ibgateway ports
+	if [ "${GATEWAY_OR_TWS}" = "gateway" ]; then
+		if [ "$TRADING_MODE" = "paper" ]; then
+			# paper ibgateway ports
+			API_PORT=4002
+			SOCAT_PORT=4004
+			export API_PORT SOCAT_PORT
+		elif [ "$TRADING_MODE" = "live" ]; then
+			# live ibgateway ports
+			API_PORT=4001
+			SOCAT_PORT=4003
+			export API_PORT SOCAT_PORT
+		else
+			# invalid option
+			echo ".> Invalid TRADING_MODE: $TRADING_MODE"
+			exit 1
+		fi
+	elif [ "${GATEWAY_OR_TWS}" = "tws" ]; then
+		if [ "$TRADING_MODE" = "paper" ]; then
+			# paper TWS ports
+			API_PORT=7497
+			SOCAT_PORT=7499
+			export API_PORT SOCAT_PORT
+		elif [ "$TRADING_MODE" = "live" ]; then
+			# live TWS ports
+			API_PORT=7496
+			SOCAT_PORT=7498
+			export API_PORT SOCAT_PORT
+		else
+			# invalid option
+			echo ".> Invalid TRADING_MODE: $TRADING_MODE"
+			exit 1
+		fi
+	fi
+	echo ".> API_PORT set to: ${API_PORT}"
+	echo ".> SOCAT_PORT set to: ${SOCAT_PORT}"
+
+}
+
+set_java_heap() {
+	# set java heap size in vm options
+	if [ -n "${JAVA_HEAP_SIZE}" ]; then
+		_vmpath="${TWS_PATH}/ibgateway/${IB_GATEWAY_VERSION}"
+		_string="s/-Xmx768m/-Xmx${JAVA_HEAP_SIZE}m/g"
+		sed -i "${_string}" "${_vmpath}/ibgateway.vmoptions"
+		echo ".> Java heap size set to ${JAVA_HEAP_SIZE}m"
+	else
+		echo ".> Usign default Java heap size 768m."
+	fi
+}
+
+port_forwarding() {
+	echo ".> Starting Port Forwarding."
+	# validate API port
+	if [ -z "${API_PORT}" ]; then
+		echo ".> API_PORT not set, port: ${API_PORT}"
+		exit 1
+	fi
+
+	if [ "$SSH_TUNNEL" = "yes" ] || [ "$SSH_TUNNEL" = "both" ]; then
+		echo ".> Starting SSH Tunnel"
+		# start socat of tunnel = both
+		if [ "$SSH_TUNNEL" = "both" ]; then
+			echo ".> Starting socat"
+			start_socat
+		fi
+		# ssh
+		start_ssh
+	else
+		echo ".> Starting socat"
+		start_socat
+	fi
+}
+
+setup_ssh() {
+	# prepare SSH Tunnel
+	if [ "$SSH_TUNNEL" = "yes" ] || [ "$SSH_TUNNEL" = "both" ]; then
+		echo ".> Setting SSH tunnel"
+
+		_SSH_OPTIONS="-o ServerAliveInterval=${SSH_ALIVE_INTERVAL:-20}"
+		_SSH_OPTIONS+=" -o ServerAliveCountMax=${SSH_ALIVE_COUNT:-3}"
+
+		if [ -n "$SSH_OPTIONS" ]; then
+			_SSH_OPTIONS+=" $SSH_OPTIONS"
+		fi
+		SSH_ALL_OPTIONS="$_SSH_OPTIONS"
+		export SSH_ALL_OPTIONS
+		echo ".> SSH options: $SSH_ALL_OPTIONS"
+
+		if [ -n "$SSH_PASSPHRASE" ]; then
+			if ! pgrep ssh-agent >/dev/null; then
+				# start agent if it's not already running
+				# https://wiki.archlinux.org/title/SSH_keys#SSH_agents
+				echo ".> Starting ssh-agent."
+				ssh-agent >"${HOME}/.ssh-agent.env"
+				source "${HOME}/.ssh-agent.env"
+				echo ".> ssh-agent sock: ${SSH_AUTH_SOCK}"
+			else
+				echo ".> ssh-agent already running"
+				if [ -z "${SSH_AUTH_SOCK}" ]; then
+					echo ".> Loading agent environment"
+					source "${HOME}/.ssh-agent.env"
+				fi
+				echo ".> ssh-agent sock: ${SSH_AUTH_SOCK}"
+			fi
+
+			echo ".> Adding keys to ssh-agent."
+			export SSH_ASKPASS_REQUIRE=never
+			SSHPASS="${SSH_PASSPHRASE}" sshpass -e -P "passphrase" ssh-add
+			echo ".> ssh-agent identities: $(ssh-add -l)"
+		fi
+	else
+		echo ".> SSH tunnel disabled"
+	fi
+}
+
+start_ssh() {
+	if [ -n "$(pgrep -f "127.0.0.1:${API_PORT}:localhost:")" ]; then
+		# if this script is already running don't start it
+		echo ".> SSH tunnel already active. Not starting a new one"
+		return 0
+	fi
+
+	if [ -z "$SSH_REMOTE_PORT" ]; then
+		# by default remote port is same than API_PORT
+		SSH_REMOTE_PORT="$API_PORT"
+	fi
+	echo ".> SSH_REMOTE_PORT set to :${SSH_REMOTE_PORT}"
+
+	# set vnc ssh tunnel
+	if [ "$GATEWAY_OR_TWS" = "gateway" ] && [ -n "$SSH_VNC_PORT" ] && [ -n "$VNC_SERVER_PASSWORD" ]; then
+		# set ssh tunnel for vnc
+		SSH_SCREEN="-R 127.0.0.1:5900:localhost:$SSH_VNC_PORT"
+		echo ".> SSH_VNC_TUNNEL set to :${SSH_SCREEN}"
+	elif [ "$GATEWAY_OR_TWS" = "tws" ] && [ -n "$SSH_RDP_PORT" ]; then
+		# set ssh tunnel for rdp
+		SSH_SCREEN="-R 127.0.0.1:3389:localhost:$SSH_RDP_PORT"
+		echo ".> SSH_RDP_TUNNEL set to :${SSH_SCREEN}"
+	else
+		# no ssh screen
+		SSH_SCREEN=
+	fi
+
+	export SSH_ALL_OPTIONS SSH_SCREEN SSH_REMOTE_PORT
+	# run ssh client
+	"${SCRIPT_PATH}/run_ssh.sh" &
+}
+
+start_socat() {
+	# run socat
+	if [ -z "${SOCAT_PORT}" ]; then
+		echo ".> SOCAT_PORT not set, port: ${SOCAT_PORT}"
+		exit 1
+	fi
+	if [ -n "$(pgrep -f "fork TCP:127.0.0.1:${API_PORT}")" ]; then
+		# if this script is already running don't start it
+		echo ".> socat already active. Not starting a new one"
+		return 0
+	else
+		# start socat
+		"${SCRIPT_PATH}/run_socat.sh" &
+	fi
+
+}
+
+
+==== ./ib-gateway-docker/latest/scripts/run_x11_vnc.sh ====
+
+#!/bin/bash
+
+x11vnc -ncache_cr -display :1 -forever -shared -bg -noipv6 -passwd "$VNC_SERVER_PASSWORD"
+
+
+==== ./ib-gateway-docker/.pre-commit-config.yaml ====
+
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-shebang-scripts-are-executable
+      - id: check-executables-have-shebangs
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0
+    hooks:
+      - id: shellcheck
+      - id: shfmt
+#  - repo: https://github.com/hadolint/hadolint
+#    rev: v2.12.0
+#    hooks:
+#      - id: hadolint
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+  - repo: https://github.com/wemake-services/dotenv-linter
+    rev: 0.4.0  # Use the ref you want to point at
+    hooks:
+      - id: dotenv-linter
+
+
+==== ./ib-gateway-docker/.hadolint.yaml ====
+
+ignored:
+  - DL3008
+  - SC2028
+  - DL3003
+
+
+==== ./ib-gateway-docker/update.sh ====
+
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
+if [ $# -ne 2 ]; then
+	echo "Usage: ./update.sh <channel> <version>"
+	exit 1
+fi
+
+channel=$1
+version=$2
+
+if [ "$channel" != "stable" ] && [ "$channel" != "latest" ]; then
+	echo "The channel must be 'stable' or 'latest'"
+	exit 1
+fi
+
+echo ".> Setting channle: $channel and version: $version for ibgateway"
+cp -r image-files/. "$channel/."
+
+# Dockerfile
+rm -f "$channel/Dockerfile"
+# shellcheck disable=SC2016
+VERSION="$version" CHANNEL="$channel" envsubst '$VERSION,$CHANNEL' <"Dockerfile.template" >"$channel/Dockerfile"
+
+echo ".> Setting channle: $channel and version: $version for tws"
+
+# Dockerfile tws
+rm -f "$channel/Dockerfile.tws"
+# shellcheck disable=SC2016
+VERSION="$version" CHANNEL="$channel" envsubst '$VERSION,$CHANNEL' <"Dockerfile.tws.template" >"$channel/Dockerfile.tws"
+
+echo ".> Done"
+
+
+==== ./ib-gateway-docker/.github/dependabot.yml ====
+
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directory: "/stable"
+    schedule:
+      interval: "daily"
+
+  - package-ecosystem: "docker"
+    directory: "/latest"
+    schedule:
+      interval: "daily"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+
+==== ./ib-gateway-docker/.github/workflows/detect-releases.yml ====
+
+name: Detect IB Gateway Releases
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: "bash -Eeuo pipefail -x {0}"
+
+jobs:
+  detect-release:
+    runs-on: ubuntu-latest
+    outputs:
+      update: ${{ steps.check-update.outputs.has_update }}
+      channel: ${{ matrix.channel }}
+    strategy:
+      fail-fast: true
+      matrix:
+        channel: ["stable", "latest"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Latest Version
+        id: version
+        run: |
+          res=$(curl -s https://download2.interactivebrokers.com/installers/tws/${{ matrix.channel }}-standalone/version.json | sed 's/tws${{ matrix.channel }}_callback(//g;s/);//g')
+          build_version=$(jq -r '.buildVersion' <<< "$res")
+          #build_dateTime=$(jq -r '.buildDateTime' <<< "$res")
+          echo "build_version=$build_version" >> $GITHUB_OUTPUT
+          #echo "build_dateTime=$build_dateTime" >> $GITHUB_OUTPUT
+
+      - name: Check if there is an update
+        id: check-update
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release list > /tmp/ibgateway-releases
+          if grep -qF '${{ steps.version.outputs.build_version }}' /tmp/ibgateway-releases
+          then
+            echo "has_update=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_update=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download
+        if: ${{ steps.check-update.outputs.has_update == 'true' }}
+        run: |
+          download_url='https://download2.interactivebrokers.com/installers/ibgateway/${{ matrix.channel }}-standalone/ibgateway-${{ matrix.channel }}-standalone-linux-x64.sh'
+          dest='ibgateway-${{ steps.version.outputs.build_version }}-standalone-linux-x64.sh'
+          curl -sSL "$download_url" --output "$dest"
+          sha256sum "$dest" > "${dest}.sha256"
+
+      - name: Create release
+        if: ${{ steps.check-update.outputs.has_update == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create 'ibgateway-${{ matrix.channel }}@${{ steps.version.outputs.build_version }}' \
+            -t 'IB Gateway ${{ matrix.channel }} ${{ steps.version.outputs.build_version }}' \
+            -n 'IB Gateway ${{ matrix.channel }} ${{ steps.version.outputs.build_version }} release files' \
+            ibgateway-*
+
+      - name: Update ${{ matrix.channel }}
+        if: ${{ steps.check-update.outputs.has_update == 'true' }}
+        run: ./update.sh ${{ matrix.channel }} ${{ steps.version.outputs.build_version }}
+
+      - name: Update README
+        if: ${{ steps.check-update.outputs.has_update == 'true' }}
+        run: |
+          # get stable and latest versions
+          export _stable_dockerfile='stable/Dockerfile'
+          export _latest_dockerfile='latest/Dockerfile'
+          if [ ${{ matrix.channel }} = 'latest' ]; then
+            # set latest
+            export LATEST_VERSION=${{ steps.version.outputs.build_version }}
+            export LATEST_MINOR=$(echo $LATEST_VERSION | cut -d '.' -f1,2)
+
+            # set stable
+            export STABLE_VERSION=$(grep 'ENV IB_GATEWAY_VERSION=' $_stable_dockerfile | head -1 | cut -d '=' -f2)
+            export STABLE_MINOR=$(echo $STABLE_VERSION| cut -d '.' -f1,2)
+
+          elif [ ${{ matrix.channel }} = 'stable' ]; then
+            # set STABLE
+            export STABLE_VERSION=${{ steps.version.outputs.build_version }}
+            export STABLE_MINOR=$(echo $STABLE_VERSION | cut -d '.' -f1,2)
+            # set LATEST
+            export LATEST_VERSION=$(grep 'ENV IB_GATEWAY_VERSION=' $_latest_dockerfile | head -1 | cut -d '=' -f2)
+            export LATEST_MINOR=$(echo $STABLE_VERSION| cut -d '.' -f1,2)
+          else
+            echo "invalid channel: ${{ matrix.channel }}"
+            exit 1
+          fi
+          # IBC
+          export IBC_VERSION="$(grep 'ENV IBC_VERSION' Dockerfile.template|cut -d '=' -f 2)"
+          # show in log
+          echo "$LATEST_VERSION,$LATEST_MINOR,$STABLE_VERSION,$STABLE_MINOR,$IBC_VERSION"
+          # replace variables
+          envsubst '$LATEST_VERSION,$LATEST_MINOR,$STABLE_VERSION,$STABLE_MINOR,$IBC_VERSION' < template_README.md > README.md
+
+      - name: Create PR
+        if: ${{ steps.check-update.outputs.has_update == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          t_branch='update-${{ matrix.channel }}-to-${{ steps.version.outputs.build_version }}'
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git pull
+          git checkout -b "$t_branch" origin/master
+          git add '${{ matrix.channel }}' README.md
+          git commit -m 'Update `${{ matrix.channel }}` to `${{ steps.version.outputs.build_version }}`'
+          git push --set-upstream origin "$t_branch"
+
+          gh pr create --base master --fill
+
+
+  build:
+    name: Call build workflow
+    needs: detect-release
+    if: needs.detect-release.outputs.update == 'true'
+    uses: gnzsnz/ib-gateway-docker/.github/workflows/build.yml@master
+    with:
+        channel: ${{ needs.detect-release.outputs.channel }}
+
+
+==== ./ib-gateway-docker/.github/workflows/detect-ibc-release.yml ====
+
+name: Detect IBC Releases
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: "bash -Eeuo pipefail -x {0}"
+
+env:
+  IBC_REPO: https://github.com/IbcAlpha/IBC.git
+  BRANCH_PREFIX: IBC-update
+jobs:
+  detect-release:
+    name: Detect Release
+    runs-on: ubuntu-latest
+    outputs:
+      update: ${{ steps.verify_latest.outputs.update }}
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Current Version
+        id: version
+        run: |
+          CURRENT_IBC="$(grep 'ENV IBC_VERSION' Dockerfile.template|cut -d '=' -f 2)"
+          echo "CURRENT_IBC=$CURRENT_IBC" >> $GITHUB_OUTPUT
+
+      - name: Get IBC latest version
+        id: ibc_version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IBC_LATEST="$(gh release list -R ${{ env.IBC_REPO }} --exclude-drafts --exclude-pre-releases |grep 'Latest'|cut -f1)"
+          if [ -n ${IBC_LATEST} ]
+          then
+            echo "IBC_LATEST=$IBC_LATEST" >> $GITHUB_OUTPUT
+          else
+          echo "IBC_LATEST=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify latest version
+        id: verify_latest
+        run: |
+          current=${{ steps.version.outputs.CURRENT_IBC }}
+          latest=${{ steps.ibc_version.outputs.IBC_LATEST }}
+
+          if [[ "$current" = "$latest" ]]; then
+            update="false"
+          else
+            update="true"
+          fi
+
+          echo "update=$update" >> $GITHUB_OUTPUT
+
+      - name: Check if branch already exists
+        id: verify_branch
+        if: ${{ steps.verify_latest.outputs.update == 'true' }}
+        run: |
+          latest=${{ steps.ibc_version.outputs.IBC_LATEST }}
+          prefix=${{ env.BRANCH_PREFIX }}
+          search=${prefix}-${latest}
+
+          if [ -n $(git branch --list | grep "$search") ]; then
+            echo "BRANCH_EXISTS=true" >> $GITHUB_OUTPUT
+          else
+            echo "BRANCH_EXISTS=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: ${{ steps.verify_branch.outputs.update == 'false' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ver=${{ steps.version.outputs.CURRENT_IBC }}
+          latest=${{ steps.ibc_version.outputs.IBC_LATEST}}
+          prefix=${{ env.BRANCH_PREFIX }}
+          branch="${prefix}-${latest}"
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git pull
+          git checkout -b "$branch" origin/master
+
+          # update Dockerfile.template, but don't run update.sh
+          # next ib gateway release will run update.sh
+          sed -i "s/IBC_VERSION=${ver}/IBC_VERSION=${latest}/g" Dockerfile.template
+
+          git add Dockerfile.template
+          git commit -m "Update IBC from ${ver} to ${latest}"
+          git push --set-upstream origin "$branch"
+
+          gh pr create --base master --fill
+
+
+  build:
+    name: Call build workflow
+    needs: detect-release
+    if: needs.detect-release.outputs.update == 'true'
+    strategy:
+      matrix:
+        channel: ['stable', 'latest']
+    uses: gnzsnz/ib-gateway-docker/.github/workflows/build.yml@master
+    with:
+        channel: ${{ matrix.channel }}
+
+
+==== ./ib-gateway-docker/.github/workflows/build.yml ====
+
+name: Docker Image Build - ibgateway/TWS build
+
+on:
+  workflow_call:
+    inputs:
+      channel:
+        required: true
+        type: string
+
+env:
+  CHANNEL: ${{ inputs.channel }}
+
+jobs:
+  build:
+    name: Build ibgateway & TWS
+
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      ###############################################################
+      #   Build ibgateway
+      ###############################################################
+      - name: Docker metadata ibgateway
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/gnzsnz/ib-gateway
+            gnzsnz/ib-gateway
+          flavor: |
+            latest=false
+          tags: |
+            type=match,pattern=v(\d+.\d+),group=1
+            type=match,pattern=v(\d+.\d+.\w+),group=1
+            type=match,pattern=v(\d+.\d+.\w+)+\-(stable|latest),group=2
+
+      - name: Build ibgateway Docker image
+        uses: docker/build-push-action@v5
+        with:
+          push: false
+          load: true
+          context: ./${{ env.CHANNEL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      ###############################################################
+      #   Build tws
+      ###############################################################
+      - name: Docker metadata tws
+        id: meta-tws
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/gnzsnz/tws-rdesktop
+            gnzsnz/tws-rdesktop
+          flavor: |
+            latest=false
+          tags: |
+            type=match,pattern=v(\d+.\d+),group=1
+            type=match,pattern=v(\d+.\d+.\w+),group=1
+            type=match,pattern=v(\d+.\d+.\w+)+\-(stable|latest),group=2
+
+      - name: Build TWS Docker image
+        uses: docker/build-push-action@v5
+        with:
+          push: false
+          load: true
+          context: ${{ env.CHANNEL }}
+          file: ${{ env.CHANNEL }}/Dockerfile.tws
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: ${{ steps.meta-tws.outputs.tags }}
+          labels: ${{ steps.meta-tws.outputs.labels }}
+
+
+==== ./ib-gateway-docker/.github/workflows/publish.yml ====
+
+name: "Publish Docker"
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish-docker:
+    name: Publish Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          lfs: true
+
+      - name: Extract release channel
+        id: channel
+        run: |
+          channel=$(cut -d - -f 2 <<< "${{ github.ref_name }}")
+          echo "channel=$channel" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      ###############################################################
+      #   Login container registry
+      ###############################################################
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      ###############################################################
+      #   Build ibgateway
+      ###############################################################
+
+      - name: Docker meta ibgateway
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/gnzsnz/ib-gateway
+            gnzsnz/ib-gateway
+          flavor: |
+            latest=false
+          tags: |
+            type=match,pattern=v(\d+.\d+),group=1
+            type=match,pattern=v(\d+.\d+.\w+),group=1
+            type=match,pattern=v(\d+.\d+.\w+)+\-(stable|latest),group=2
+
+      - name: Build and push ibgateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ steps.channel.outputs.channel }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      ###############################################################
+      #   Build tws
+      ###############################################################
+
+      - name: Docker meta TWS
+        id: meta-tws
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/gnzsnz/tws-rdesktop
+            gnzsnz/tws-rdesktop
+          flavor: |
+            latest=false
+          tags: |
+            type=match,pattern=v(\d+.\d+),group=1
+            type=match,pattern=v(\d+.\d+.\w+),group=1
+            type=match,pattern=v(\d+.\d+.\w+)+\-(stable|latest),group=2
+
+      - name: Build and push TWS
+        uses: docker/build-push-action@v5
+        with:
+            context: ${{ steps.channel.outputs.channel }}
+            file: ${{ steps.channel.outputs.channel }}/Dockerfile.tws
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
+            push: true
+            tags: ${{ steps.meta-tws.outputs.tags }}
+            labels: ${{ steps.meta-tws.outputs.labels }}
+
+
+==== ./ib-gateway-docker/.github/workflows/on-push-n-pr.yml ====
+
+name: Docker Image CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['*', '!update-*-to-*', '!IBC-update*']
+    tags-ignore:
+      - 'v*'
+  pull_request:
+    branches: ['master', '!update-*-to-*', '!IBC-update*']
+
+jobs:
+  build:
+      name: Build image
+      strategy:
+        matrix:
+          channel: ['stable', 'latest']
+      uses: gnzsnz/ib-gateway-docker/.github/workflows/build.yml@master
+      with:
+          channel: ${{ matrix.channel }}
+
+
+==== ./ib-gateway-docker/Dockerfile.tws.template ====
+
+##############################################################################
+# Setup Stage: install apps
+#
+# This is a dedicated stage used as source for needed files.
+#
+##############################################################################
+ARG IB_VERSION=$VERSION
+FROM ghcr.io/gnzsnz/ib-gateway:${IB_VERSION} as setup
+
+WORKDIR /
+
+##############################################################################
+# Build Stage: build production image
+##############################################################################
+
+FROM lscr.io/linuxserver/rdesktop:ubuntu-xfce
+
+ENV IB_GATEWAY_VERSION=$VERSION
+ENV IB_GATEWAY_RELEASE_CHANNEL=$CHANNEL
+ENV IBC_VERSION=3.18.0
+
+# IB Gateway user constants
+# IBC env vars
+ENV TWS_MAJOR_VRSN=${IB_GATEWAY_VERSION}
+ENV TWS_PATH=/opt/ibkr
+ENV TWS_INI=jts.ini
+ENV TWS_INI_TMPL=${TWS_INI}.tmpl
+ENV IBC_PATH=/opt/ibc
+ENV IBC_INI=${IBC_PATH}/config.ini
+ENV IBC_INI_TMPL=${IBC_INI}.tmpl
+ENV SCRIPT_PATH=/defaults
+ENV GATEWAY_OR_TWS=tws
+ENV NO_AT_BRIDGE=1
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN \
+  apt-get update -y && \
+  apt-get upgrade -y && \
+  apt-get install --no-install-recommends --yes socat sshpass gettext-base \
+    libnspr4 libnss3 libcrypto++8 xdg-utils xfce4-cpugraph-plugin \
+    xfce4-netload-plugin xfce4-taskmanager xfce4-xkb-plugin xfce4-notes \
+    gvfs gvfs-backends gvfs-fuse && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* # end
+
+# Copy files
+COPY --from=setup /usr/local/i4j_jres/ /usr/local/i4j_jres
+COPY --chown=abc:abc --from=setup /home/ibgateway/Jts ${TWS_PATH}
+COPY --chown=abc:abc --from=setup /home/ibgateway/ibc ${IBC_PATH}
+COPY ./tws-scripts/start_session.sh /custom-services.d/start_session.sh
+COPY ./tws-scripts/run_tws.sh ${SCRIPT_PATH}
+COPY ./scripts/* ${SCRIPT_PATH}
+
+# labels
+LABEL org.opencontainers.image.source=https://github.com/gnzsnz/ib-gateway-docker
+LABEL org.opencontainers.image.url=https://github.com/gnzsnz/ib-gateway-docker/pkgs/container/tws-rdesktop
+LABEL org.opencontainers.image.description="Docker image with XFCE, TWS & IBC"
+LABEL org.opencontainers.image.licenses="Apache License Version 2.0"
+LABEL org.opencontainers.image.version=${IB_GATEWAY_VERSION}-${IB_GATEWAY_RELEASE_CHANNEL}
+
+
+==== ./ib-gateway-docker/docker-compose.yml ====
+
+version: "3.4"
+
+name: algo-trader
+services:
+  ib-gateway:
+    restart: always
+    build:
+      context: ./latest
+      platforms:
+        - "linux/arm64"
+      tags:
+      - "gnzsnz/ib-gateway:latest"
+        #- "ghcr.io/gnzsnz/ib-gateway:latest"
+    #image: ghcr.io/gnzsnz/ib-gateway:latest
+    image: gnzsnz/ib-gateway:latest
+    environment:
+      TWS_USERID: ${TWS_USERID}
+      TWS_PASSWORD: ${TWS_PASSWORD}
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      TWS_USERID_PAPER: ${TWS_USERID_PAPER:-}
+      TWS_PASSWORD_PAPER: ${TWS_PASSWORD_PAPER:-}
+      TWS_SETTINGS_PATH: ${TWS_SETTINGS_PATH:-}
+      READ_ONLY_API: ${READ_ONLY_API:-}
+      VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD:-}
+      TWOFA_TIMEOUT_ACTION: ${TWOFA_TIMEOUT_ACTION:-exit}
+      BYPASS_WARNING: ${BYPASS_WARNING:-}
+      AUTO_RESTART_TIME: ${AUTO_RESTART_TIME:-}
+      AUTO_LOGOFF_TIME: ${AUTO_LOGOFF_TIME:-}
+      SAVE_TWS_SETTINGS: ${SAVE_TWS_SETTINGS:-}
+      RELOGIN_AFTER_TWOFA_TIMEOUT: ${RELOGIN_AFTER_TWOFA_TIMEOUT:-no}
+      TWOFA_EXIT_INTERVAL: ${TWOFA_EXIT_INTERVAL:-60}
+      TIME_ZONE: ${TIME_ZONE:-Etc/UTC}
+      TZ: ${TIME_ZONE:-Etc/UTC}
+      CUSTOM_CONFIG: ${CUSTOM_CONFIG:-NO}
+      JAVA_HEAP_SIZE: ${JAVA_HEAP_SIZE:-}
+      SSH_TUNNEL: ${SSH_TUNNEL:-}
+      SSH_OPTIONS: ${SSH_OPTIONS:-}
+      SSH_ALIVE_INTERVAL: ${SSH_ALIVE_INTERVAL:-}
+      SSH_ALIVE_COUNT: ${SSH_ALIVE_COUNT:-}
+      SSH_PASSPHRASE: ${SSH_PASSPHRASE:-}
+      SSH_REMOTE_PORT: ${SSH_REMOTE_PORT:-}
+      SSH_USER_TUNNEL: ${SSH_USER_TUNNEL:-}
+      SSH_RESTART: ${SSH_RESTART:-}
+      SSH_VNC_PORT: ${SSH_VNC_PORT:-}
+#    volumes:
+#      - ${PWD}/jts.ini:/home/ibgateway/Jts/jts.ini
+#      - ${PWD}/config.ini:/home/ibgateway/ibc/config.ini
+#      - ${PWD}/tws_settings/:${TWS_SETTINGS_PATH:-/home/ibgateway/Jts}
+#      - ${PWD}/ssh/:/home/ibgateway/.ssh
+    ports:
+      - "127.0.0.1:4001:4003"
+      - "127.0.0.1:4002:4004"
+      #- "127.0.0.1:5900:5900"
+      - "5900:5900"
+
+
+==== ./ib-gateway-docker/image-files/tws-scripts/run_tws.sh ====
+
+#!/bin/bash
+# shellcheck shell=bash
+# shellcheck disable=SC1091,SC2317,SC2034
+
+echo "*************************************************************************"
+echo ".> Starting IBC/TWS"
+echo "*************************************************************************"
+# source common functions
+source "${SCRIPT_PATH}/common.sh"
+
+disable_agents() {
+	## disable ssh and gpg agent
+	# https://docs.xfce.org/xfce/xfce4-session/advanced
+	if [ ! -f /config/.config/disable_agents ]; then
+		echo ".> Disabling ssh-agent and gpg-agent"
+		# disable xfce
+		xfconf-query -c xfce4-session -p /startup/ssh-agent/enabled -n -t bool -s false
+		xfconf-query -c xfce4-session -p /startup/gpg-agent/enabled -n -t bool -s false
+		# kill ssh-agent and gpg-agent
+		pkill -x ssh-agent
+		pkill -x gpg-agent
+		touch /config/.config/disable_agents
+	else
+		echo ".> Found '/config/.config/disable_agents' agents already disabled"
+	fi
+}
+
+disable_compositing() {
+	# disable compositing
+	# https://github.com/gnzsnz/ib-gateway-docker/issues/55
+	echo ".> Disabling xfce compositing"
+	xfconf-query --channel=xfwm4 --property=/general/use_compositing --type=bool --set=false --create
+}
+
+start_IBC() {
+	echo ".> Starting IBC in ${TRADING_MODE} mode, with params:"
+	echo ".>		Version: ${TWS_MAJOR_VRSN}"
+	echo ".>		program: ${IBC_COMMAND:-gateway}"
+	echo ".>		tws-path: ${TWS_PATH}"
+	echo ".>		ibc-path: ${IBC_PATH}"
+	echo ".>		ibc-init: ${IBC_INI}"
+	echo ".>		tws-settings-path: ${TWS_SETTINGS_PATH:-$TWS_PATH}"
+	echo ".>		on2fatimeout: ${TWOFA_TIMEOUT_ACTION}"
+	# start IBC
+	"${IBC_PATH}/scripts/ibcstart.sh" "${TWS_MAJOR_VRSN}" \
+		"--tws-path=${TWS_PATH}" \
+		"--ibc-path=${IBC_PATH}" "--ibc-ini=${IBC_INI}" \
+		"--on2fatimeout=${TWOFA_TIMEOUT_ACTION}" \
+		"--tws-settings-path=${TWS_SETTINGS_PATH:-}" &
+	_p="$!"
+	pid+=("$_p")
+	export pid
+	echo "$_p" >"/tmp/pid_${TRADING_MODE}"
+}
+
+start_process() {
+	# set API and socat ports
+	set_ports
+	# apply settings
+	apply_settings
+	# forward ports, socat/ssh
+	port_forwarding
+
+	start_IBC
+}
+
+###############################################################################
+#####		Common Start
+###############################################################################
+# set display
+export DISPLAY=:10
+
+# user id
+echo ".> Running as user"
+id
+# disable agents
+disable_agents
+# disable compositing
+disable_compositing
+# SSH
+setup_ssh
+# Java heap size
+set_java_heap
+
+###############################################################################
+#####		Paper, Live or both start process
+###############################################################################
+if [ "$TRADING_MODE" == "both" ] || [ "$DUAL_MODE" == "yes" ]; then
+	# start live and paper
+	DUAL_MODE=yes
+	export DUAL_MODE
+	# start live first
+	TRADING_MODE=live
+	# add _live subfix
+	_IBC_INI="${IBC_INI}"
+	export _IBC_INI
+	IBC_INI="${_IBC_INI}_${TRADING_MODE}"
+	if [ -n "$TWS_SETTINGS_PATH" ]; then
+		_TWS_SETTINGS_PATH="${TWS_SETTINGS_PATH}"
+		export _TWS_SETTINGS_PATH
+		TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+	else
+		# no TWS settings
+		_TWS_SETTINGS_PATH="${TWS_PATH}"
+		export _TWS_SETTINGS_PATH
+		TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+	fi
+fi
+
+start_process
+
+if [ "$DUAL_MODE" == "yes" ]; then
+	# running dual mode, start paper
+	TRADING_MODE=paper
+	TWS_USERID="${TWS_USERID_PAPER}"
+	export TWS_USERID
+	TWS_PASSWORD="${TWS_PASSWORD_PAPER}"
+	export TWS_PASSWORD
+	# disable duplicate ssh for vnc/rdp
+	SSH_VNC_PORT=
+	export SSH_VNC_PORT
+	SSH_RDP_PORT=
+	export SSH_RDP_PORT
+	# in dual mode, ssh remote always == api port
+	SSH_REMOTE_PORT=
+	export SSH_REMOTE_PORT
+	#
+	IBC_INI="${_IBC_INI}_${TRADING_MODE}"
+	TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+
+	sleep 15
+	start_process
+fi
+
+wait "${pid[@]}"
+_wait="$?"
+echo ".> ************************** End run_tws.sh ******************************** <."
+exit "$_wait"
+
+
+==== ./ib-gateway-docker/image-files/tws-scripts/start_session.sh ====
+
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+echo "*************************************************************************"
+echo ".> Launching IBC/TWS service"
+echo "*************************************************************************"
+# shellcheck disable=SC1091
+# source common functions
+source "${SCRIPT_PATH}/common.sh"
+
+# set display
+export DISPLAY=:10
+
+# set user pass
+_PASS=${PASSWD:-abc}
+echo ".> Setting user password"
+echo "abc:$_PASS" | chpasswd
+id
+
+if [ -n "${TZ}" ]; then
+	echo ".> Setting timezone to: ${TZ}"
+	echo "${TZ}" >/etc/timezone
+fi
+
+# open xfce session
+echo ".> Openning Xrdp session"
+echo "${_PASS}" | xrdp-sesrun -s 127.0.0.1 -F 0 abc
+
+# setting permissions
+echo ".> Setting permissions for ${TWS_PATH} and ${IBC_PATH}"
+chown abc:abc -R /opt "${TWS_PATH}" "${IBC_PATH}"
+
+sudo -EH -u abc "${SCRIPT_PATH}/run_tws.sh"
+
+
+==== ./ib-gateway-docker/image-files/scripts/run_ssh.sh ====
+
+#!/bin/bash
+
+_OPTIONS="$SSH_ALL_OPTIONS"
+_LOCAL_PORT="$API_PORT"
+_REMOTE_PORT="$SSH_REMOTE_PORT"
+_SCREEN="$SSH_SCREEN"
+_USER_TUNNEL="$SSH_USER_TUNNEL"
+_RESTART="$SSH_RESTART"
+
+while true; do
+	echo ".> Starting ssh tunnel with ssh sock: $SSH_AUTH_SOCK"
+	bash -c "ssh ${_OPTIONS} -TNR 127.0.0.1:${_LOCAL_PORT}:localhost:${_REMOTE_PORT} ${_SCREEN:-} ${_USER_TUNNEL}"
+	sleep "${_RESTART:-5}"
+done
+
+
+==== ./ib-gateway-docker/image-files/scripts/run.sh ====
+
+#!/bin/bash
+# shellcheck disable=SC2317
+# Don't warn about unreachable commands in this file
+
+echo "*************************************************************************"
+echo ".> Starting IBC/IB gateway"
+echo "*************************************************************************"
+
+# shellcheck disable=SC1091
+source "${SCRIPT_PATH}/common.sh"
+
+stop_ibc() {
+	echo ".> 😘 Received SIGINT or SIGTERM. Shutting down IB Gateway."
+
+	#
+	if [ -n "$VNC_SERVER_PASSWORD" ]; then
+		echo ".> Stopping x11vnc."
+		pkill x11vnc
+	fi
+	#
+	echo ".> Stopping Xvfb."
+	pkill Xvfb
+	#
+	if [ -n "$SSH_TUNNEL" ]; then
+		echo ".> Stopping ssh."
+		pkill run_ssh.sh
+		pkill ssh
+		echo ".> Stopping socat."
+		pkill run_socat.sh
+		pkill socat
+	else
+		echo ".> Stopping socat."
+		pkill run_socat.sh
+		pkill socat
+	fi
+	# Set TERM
+	echo ".> Stopping IBC."
+	kill -SIGTERM "${pid[@]}"
+	# Wait for exit
+	wait "${pid[@]}"
+	# All done.
+	echo ".> Done... $?"
+}
+
+start_xvfb() {
+	# start Xvfb
+	echo ".> Starting Xvfb server"
+	DISPLAY=:1
+	export DISPLAY
+	rm -f /tmp/.X1-lock
+	Xvfb $DISPLAY -ac -screen 0 1024x768x16 &
+}
+
+start_vnc() {
+	# start VNC server
+	if [ -n "$VNC_SERVER_PASSWORD" ]; then
+		echo ".> Starting VNC server"
+		x11vnc -ncache_cr -display :1 -forever -shared -bg -noipv6 -passwd "$VNC_SERVER_PASSWORD" &
+	else
+		echo ".> VNC server disabled"
+	fi
+}
+
+start_IBC() {
+	echo ".> Starting IBC in ${TRADING_MODE} mode, with params:"
+	echo ".>		Version: ${TWS_MAJOR_VRSN}"
+	echo ".>		program: ${IBC_COMMAND:-gateway}"
+	echo ".>		tws-path: ${TWS_PATH}"
+	echo ".>		ibc-path: ${IBC_PATH}"
+	echo ".>		ibc-init: ${IBC_INI}"
+	echo ".>		tws-settings-path: ${TWS_SETTINGS_PATH:-$TWS_PATH}"
+	echo ".>		on2fatimeout: ${TWOFA_TIMEOUT_ACTION}"
+	# start IBC -g for gateway
+	"${IBC_PATH}/scripts/ibcstart.sh" "${TWS_MAJOR_VRSN}" -g \
+		"--tws-path=${TWS_PATH}" \
+		"--ibc-path=${IBC_PATH}" "--ibc-ini=${IBC_INI}" \
+		"--on2fatimeout=${TWOFA_TIMEOUT_ACTION}" \
+		"--tws-settings-path=${TWS_SETTINGS_PATH:-}" &
+	_p="$!"
+	pid+=("$_p")
+	export pid
+	echo "$_p" >"/tmp/pid_${TRADING_MODE}"
+}
+
+start_process() {
+	# set API and socat ports
+	set_ports
+	# apply settings
+	apply_settings
+	# forward ports, socat/ssh
+	port_forwarding
+
+	start_IBC
+}
+
+###############################################################################
+#####		Common Start
+###############################################################################
+# start Xvfb
+start_xvfb
+
+# setup SSH Tunnel
+setup_ssh
+
+# Java heap size
+set_java_heap
+
+# start VNC server
+start_vnc
+
+###############################################################################
+#####		Paper, Live or both start process
+###############################################################################
+
+if [ "$TRADING_MODE" == "both" ] || [ "$DUAL_MODE" == "yes" ]; then
+	# start live and paper
+	DUAL_MODE=yes
+	export DUAL_MODE
+	# start live first
+	TRADING_MODE=live
+	# add _live subfix
+	_IBC_INI="${IBC_INI}"
+	export _IBC_INI
+	IBC_INI="${_IBC_INI}_${TRADING_MODE}"
+	if [ -n "$TWS_SETTINGS_PATH" ]; then
+		_TWS_SETTINGS_PATH="${TWS_SETTINGS_PATH}"
+		export _TWS_SETTINGS_PATH
+		TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+	else
+		# no TWS settings
+		_TWS_SETTINGS_PATH="${TWS_PATH}"
+		export _TWS_SETTINGS_PATH
+		TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+	fi
+fi
+
+start_process
+
+if [ "$DUAL_MODE" == "yes" ]; then
+	# running dual mode, start paper
+	TRADING_MODE=paper
+	TWS_USERID="${TWS_USERID_PAPER}"
+	export TWS_USERID
+	TWS_PASSWORD="${TWS_PASSWORD_PAPER}"
+	export TWS_PASSWORD
+	# disable duplicate ssh for vnc/rdp
+	SSH_VNC_PORT=
+	export SSH_VNC_PORT
+	# in dual mode, ssh remote always == api port
+	SSH_REMOTE_PORT=
+	export SSH_REMOTE_PORT
+	#
+	IBC_INI="${_IBC_INI}_${TRADING_MODE}"
+	TWS_SETTINGS_PATH="${_TWS_SETTINGS_PATH}_${TRADING_MODE}"
+
+	sleep 15
+	start_process
+fi
+
+trap stop_ibc SIGINT SIGTERM
+wait "${pid[@]}"
+exit $?
+
+
+==== ./ib-gateway-docker/image-files/scripts/run_socat.sh ====
+
+#!/bin/bash
+
+LOCAL_PORT="$API_PORT"
+# shellcheck disable=SC2153
+PUBLISHED_PORT="$SOCAT_PORT"
+_RESTART="$SSH_RESTART"
+
+while true; do
+	printf "Forking :::%d onto 0.0.0.0:%d > trading mode %s \n" \
+		"${LOCAL_PORT}" "${PUBLISHED_PORT}" "${TRADING_MODE}"
+	socat TCP-LISTEN:"${PUBLISHED_PORT}",fork TCP:127.0.0.1:"${LOCAL_PORT}"
+	sleep "${_RESTART:-5}"
+done
+
+
+==== ./ib-gateway-docker/image-files/scripts/common.sh ====
+
+#!/bin/bash
+# shellcheck disable=SC1091
+
+apply_settings() {
+	# apply env variables into IBC and gateway/TWS config files
+	if [ "$CUSTOM_CONFIG" != "yes" ]; then
+		echo ".> Appling settings to IBC's config.ini"
+		# replace env variables
+		envsubst <"${IBC_INI_TMPL}" >"${IBC_INI}"
+
+		# where are settings stored
+		if [ -n "$TWS_SETTINGS_PATH" ]; then
+			echo ".> Settings directory set to: $TWS_SETTINGS_PATH"
+			_JTS_PATH=$TWS_SETTINGS_PATH
+			if [ ! -d "$TWS_SETTINGS_PATH" ]; then
+				# if TWS_SETTINGS_PATH does not exists, create it
+				echo ".> Creating directory: $TWS_SETTINGS_PATH"
+				mkdir "$TWS_SETTINGS_PATH"
+			fi
+		else
+			echo ".> Settings directory NOT set, defaulting to: $TWS_PATH"
+			_JTS_PATH=$TWS_PATH
+		fi
+		# only if jts.ini does not exists
+		if [ ! -f "$_JTS_PATH/$TWS_INI" ]; then
+			echo ".> Setting timezone in ${_JTS_PATH}/${TWS_INI}"
+			envsubst <"${TWS_PATH}/${TWS_INI_TMPL}" >"${_JTS_PATH}/${TWS_INI}"
+		else
+			echo ".> File jts.ini already exists, not setting timezone"
+		fi
+	else
+		echo ".> Using CUSTOM_CONFIG, (value:${CUSTOM_CONFIG})"
+	fi
+}
+
+set_ports() {
+	# set ports for API and SOCAT
+
+	# ibgateway ports
+	if [ "${GATEWAY_OR_TWS}" = "gateway" ]; then
+		if [ "$TRADING_MODE" = "paper" ]; then
+			# paper ibgateway ports
+			API_PORT=4002
+			SOCAT_PORT=4004
+			export API_PORT SOCAT_PORT
+		elif [ "$TRADING_MODE" = "live" ]; then
+			# live ibgateway ports
+			API_PORT=4001
+			SOCAT_PORT=4003
+			export API_PORT SOCAT_PORT
+		else
+			# invalid option
+			echo ".> Invalid TRADING_MODE: $TRADING_MODE"
+			exit 1
+		fi
+	elif [ "${GATEWAY_OR_TWS}" = "tws" ]; then
+		if [ "$TRADING_MODE" = "paper" ]; then
+			# paper TWS ports
+			API_PORT=7497
+			SOCAT_PORT=7499
+			export API_PORT SOCAT_PORT
+		elif [ "$TRADING_MODE" = "live" ]; then
+			# live TWS ports
+			API_PORT=7496
+			SOCAT_PORT=7498
+			export API_PORT SOCAT_PORT
+		else
+			# invalid option
+			echo ".> Invalid TRADING_MODE: $TRADING_MODE"
+			exit 1
+		fi
+	fi
+	echo ".> API_PORT set to: ${API_PORT}"
+	echo ".> SOCAT_PORT set to: ${SOCAT_PORT}"
+
+}
+
+set_java_heap() {
+	# set java heap size in vm options
+	if [ -n "${JAVA_HEAP_SIZE}" ]; then
+		_vmpath="${TWS_PATH}/ibgateway/${IB_GATEWAY_VERSION}"
+		_string="s/-Xmx768m/-Xmx${JAVA_HEAP_SIZE}m/g"
+		sed -i "${_string}" "${_vmpath}/ibgateway.vmoptions"
+		echo ".> Java heap size set to ${JAVA_HEAP_SIZE}m"
+	else
+		echo ".> Usign default Java heap size 768m."
+	fi
+}
+
+port_forwarding() {
+	echo ".> Starting Port Forwarding."
+	# validate API port
+	if [ -z "${API_PORT}" ]; then
+		echo ".> API_PORT not set, port: ${API_PORT}"
+		exit 1
+	fi
+
+	if [ "$SSH_TUNNEL" = "yes" ] || [ "$SSH_TUNNEL" = "both" ]; then
+		echo ".> Starting SSH Tunnel"
+		# start socat of tunnel = both
+		if [ "$SSH_TUNNEL" = "both" ]; then
+			echo ".> Starting socat"
+			start_socat
+		fi
+		# ssh
+		start_ssh
+	else
+		echo ".> Starting socat"
+		start_socat
+	fi
+}
+
+setup_ssh() {
+	# prepare SSH Tunnel
+	if [ "$SSH_TUNNEL" = "yes" ] || [ "$SSH_TUNNEL" = "both" ]; then
+		echo ".> Setting SSH tunnel"
+
+		_SSH_OPTIONS="-o ServerAliveInterval=${SSH_ALIVE_INTERVAL:-20}"
+		_SSH_OPTIONS+=" -o ServerAliveCountMax=${SSH_ALIVE_COUNT:-3}"
+
+		if [ -n "$SSH_OPTIONS" ]; then
+			_SSH_OPTIONS+=" $SSH_OPTIONS"
+		fi
+		SSH_ALL_OPTIONS="$_SSH_OPTIONS"
+		export SSH_ALL_OPTIONS
+		echo ".> SSH options: $SSH_ALL_OPTIONS"
+
+		if [ -n "$SSH_PASSPHRASE" ]; then
+			if ! pgrep ssh-agent >/dev/null; then
+				# start agent if it's not already running
+				# https://wiki.archlinux.org/title/SSH_keys#SSH_agents
+				echo ".> Starting ssh-agent."
+				ssh-agent >"${HOME}/.ssh-agent.env"
+				source "${HOME}/.ssh-agent.env"
+				echo ".> ssh-agent sock: ${SSH_AUTH_SOCK}"
+			else
+				echo ".> ssh-agent already running"
+				if [ -z "${SSH_AUTH_SOCK}" ]; then
+					echo ".> Loading agent environment"
+					source "${HOME}/.ssh-agent.env"
+				fi
+				echo ".> ssh-agent sock: ${SSH_AUTH_SOCK}"
+			fi
+
+			echo ".> Adding keys to ssh-agent."
+			export SSH_ASKPASS_REQUIRE=never
+			SSHPASS="${SSH_PASSPHRASE}" sshpass -e -P "passphrase" ssh-add
+			echo ".> ssh-agent identities: $(ssh-add -l)"
+		fi
+	else
+		echo ".> SSH tunnel disabled"
+	fi
+}
+
+start_ssh() {
+	if [ -n "$(pgrep -f "127.0.0.1:${API_PORT}:localhost:")" ]; then
+		# if this script is already running don't start it
+		echo ".> SSH tunnel already active. Not starting a new one"
+		return 0
+	fi
+
+	if [ -z "$SSH_REMOTE_PORT" ]; then
+		# by default remote port is same than API_PORT
+		SSH_REMOTE_PORT="$API_PORT"
+	fi
+	echo ".> SSH_REMOTE_PORT set to :${SSH_REMOTE_PORT}"
+
+	# set vnc ssh tunnel
+	if [ "$GATEWAY_OR_TWS" = "gateway" ] && [ -n "$SSH_VNC_PORT" ] && [ -n "$VNC_SERVER_PASSWORD" ]; then
+		# set ssh tunnel for vnc
+		SSH_SCREEN="-R 127.0.0.1:5900:localhost:$SSH_VNC_PORT"
+		echo ".> SSH_VNC_TUNNEL set to :${SSH_SCREEN}"
+	elif [ "$GATEWAY_OR_TWS" = "tws" ] && [ -n "$SSH_RDP_PORT" ]; then
+		# set ssh tunnel for rdp
+		SSH_SCREEN="-R 127.0.0.1:3389:localhost:$SSH_RDP_PORT"
+		echo ".> SSH_RDP_TUNNEL set to :${SSH_SCREEN}"
+	else
+		# no ssh screen
+		SSH_SCREEN=
+	fi
+
+	export SSH_ALL_OPTIONS SSH_SCREEN SSH_REMOTE_PORT
+	# run ssh client
+	"${SCRIPT_PATH}/run_ssh.sh" &
+}
+
+start_socat() {
+	# run socat
+	if [ -z "${SOCAT_PORT}" ]; then
+		echo ".> SOCAT_PORT not set, port: ${SOCAT_PORT}"
+		exit 1
+	fi
+	if [ -n "$(pgrep -f "fork TCP:127.0.0.1:${API_PORT}")" ]; then
+		# if this script is already running don't start it
+		echo ".> socat already active. Not starting a new one"
+		return 0
+	else
+		# start socat
+		"${SCRIPT_PATH}/run_socat.sh" &
+	fi
+
+}
+
+
+==== ./ib-gateway-docker/Dockerfile.template ====
+
+##############################################################################
+# Setup Stage: install apps
+#
+# This is a dedicated stage so that donwload archives don't end up on
+# production image and consume unnecessary space.
+##############################################################################
+
+FROM ubuntu:22.04 as setup
+
+ENV IB_GATEWAY_VERSION=$VERSION
+ENV IB_GATEWAY_RELEASE_CHANNEL=$CHANNEL
+ENV IBC_VERSION=3.18.0
+
+WORKDIR /tmp/setup
+
+# Prepare system
+RUN apt-get update -y && \
+  DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes \
+  curl \
+  ca-certificates \
+  unzip && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* && \
+# Install IB Gateway
+# Use this instead of "RUN curl .." to install a local file:
+#COPY ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh .
+  curl -sSOL https://github.com/gnzsnz/ib-gateway-docker/releases/download/ibgateway-${IB_GATEWAY_RELEASE_CHANNEL}%40${IB_GATEWAY_VERSION}/ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh && \
+  curl -sSOL https://github.com/gnzsnz/ib-gateway-docker/releases/download/ibgateway-${IB_GATEWAY_RELEASE_CHANNEL}%40${IB_GATEWAY_VERSION}/ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh.sha256 && \
+  sha256sum --check ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh.sha256 && \
+  chmod a+x ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh && \
+  ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh -q -dir /root/Jts/ibgateway/${IB_GATEWAY_VERSION} &&\
+  # Install IBC
+  curl -sSOL https://github.com/IbcAlpha/IBC/releases/download/${IBC_VERSION}-Update.1/IBCLinux-${IBC_VERSION}.zip && \
+  mkdir /root/ibc && \
+  unzip ./IBCLinux-${IBC_VERSION}.zip -d /root/ibc && \
+  chmod -R u+x /root/ibc/*.sh && \
+  chmod -R u+x /root/ibc/scripts/*.sh
+
+COPY ./config/ibgateway/jts.ini.tmpl /root/Jts/jts.ini.tmpl
+COPY ./config/ibc/config.ini.tmpl /root/ibc/config.ini.tmpl
+
+# Copy scripts
+COPY ./scripts /root/scripts
+
+##############################################################################
+# Build Stage: build production image
+##############################################################################
+
+FROM ubuntu:22.04
+
+ENV IB_GATEWAY_VERSION=$VERSION
+# IB Gateway user constants
+ARG USER_ID="${USER_ID:-1000}"
+ARG USER_GID="${USER_GID:-1000}"
+# IBC env vars
+ENV HOME=/home/ibgateway
+ENV TWS_MAJOR_VRSN=${IB_GATEWAY_VERSION}
+ENV TWS_PATH=${HOME}/Jts
+ENV TWS_INI=jts.ini
+ENV TWS_INI_TMPL=${TWS_INI}.tmpl
+ENV IBC_PATH=${HOME}/ibc
+ENV IBC_INI=${HOME}/ibc/config.ini
+ENV IBC_INI_TMPL=${IBC_INI}.tmpl
+ENV SCRIPT_PATH=${HOME}/scripts
+ENV GATEWAY_OR_TWS=gateway
+# Copy files
+COPY --from=setup /usr/local/i4j_jres/ /usr/local/i4j_jres
+COPY --chown=${USER_ID}:${USER_GID} --from=setup /root/ ${HOME}
+
+# Prepare system
+RUN apt-get update -y && \
+  apt-get upgrade -y && \
+  DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes \
+  gettext-base socat xvfb x11vnc sshpass openssh-client && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* && \
+  groupadd --gid ${USER_GID} ibgateway && \
+  useradd -ms /bin/bash --uid ${USER_ID} --gid ${USER_GID} ibgateway && \
+  chmod a+x ${SCRIPT_PATH}/*.sh
+
+USER ${USER_ID}:${USER_GID}
+WORKDIR ${HOME}
+
+# Start run script
+CMD ["/home/ibgateway/scripts/run.sh"]
+
+LABEL org.opencontainers.image.source=https://github.com/gnzsnz/ib-gateway-docker
+LABEL org.opencontainers.image.url=https://github.com/gnzsnz/ib-gateway-docker/pkgs/container/ib-gateway
+LABEL org.opencontainers.image.description="Docker image with IB Gateway and IBC "
+LABEL org.opencontainers.image.licenses="Apache License Version 2.0"
+LABEL org.opencontainers.image.version=${IB_GATEWAY_VERSION}-${IB_GATEWAY_RELEASE_CHANNEL}
+
+

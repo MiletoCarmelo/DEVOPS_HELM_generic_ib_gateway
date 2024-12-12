@@ -1,0 +1,66 @@
+# templates/novnc.yaml
+{{- if .Values.novnc.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}-novnc
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: novnc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ib-gateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: novnc
+  template:
+    metadata:
+      labels:
+        {{- include "ib-gateway.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: novnc
+    spec:
+      containers:
+        - name: novnc
+          image: {{ .Values.novnc.image.repository }}:{{ .Values.novnc.image.tag }}
+          imagePullPolicy: {{ .Values.novnc.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: DISPLAY_WIDTH
+              value: "{{ .Values.novnc.display.width }}"
+            - name: DISPLAY_HEIGHT
+              value: "{{ .Values.novnc.display.height }}"
+            - name: RUN_XTERM
+              value: "no"
+            - name: RUN_FLUXBOX
+              value: "no"
+            - name: VNC_PORT
+              value: "{{ .Values.vnc.port }}"
+            - name: VNC_HOST
+              value: {{ include "ib-gateway.fullname" . }}
+            - name: VNC_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "ib-gateway.fullname" . }}-config
+                  key: VNC_SERVER_PASSWORD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}-novnc
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: novnc
+spec:
+  type: {{ .Values.novnc.service.type }}
+  ports:
+    - port: {{ .Values.novnc.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ib-gateway.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: novnc
+{{- end }}
