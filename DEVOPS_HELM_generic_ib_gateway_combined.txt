@@ -73,6 +73,14 @@ namespace:
 
 ingress:
   enabled: true
+  className: "nginx"  # ou votre classe d'ingress préférée
+  annotations: {}
+  hosts:
+    - host: ibgateway.local  # remplacez par votre nom d'hôte par défaut
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 4002  # port API par défaut
 
 # Configuration des secrets
 secret:
@@ -128,7 +136,7 @@ apiVersion: v2
 name: generic-ib-gateway-backend
 description: A Helm chart for deploying Interactive Brokers Gateway on Kubernetes
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "1.0.0"
 
 ==== ./scripts/novnc-start.sh ====
@@ -437,6 +445,22 @@ jobs:
         branch: prod
 
 
+==== ./templates/serviceaccount.yaml ====
+
+{{- if .Values.serviceAccount.create -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "ib-gateway.serviceAccountName" . }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+
 ==== ./templates/configmap.yaml ====
 
 # templates/configmap.yaml
@@ -671,7 +695,6 @@ spec:
 
 ==== ./templates/ingress.yaml ====
 
-# templates/ingress.yaml (optionnel, à ajouter si nécessaire)
 {{- if .Values.ingress.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -687,6 +710,7 @@ spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
   {{- end }}
+  {{- if .Values.ingress.hosts }}
   rules:
     {{- range .Values.ingress.hosts }}
     - host: {{ .host | quote }}
@@ -702,6 +726,19 @@ spec:
                   number: {{ .port }}
           {{- end }}
     {{- end }}
+  {{- else }}
+  # Configuration par défaut si aucune règle n'est spécifiée
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ib-gateway.fullname" . }}
+                port:
+                  number: {{ .Values.ibgateway.apiPort }}
+  {{- end }}
 {{- end }}
 
 ==== ./docker-compose.yaml ====
