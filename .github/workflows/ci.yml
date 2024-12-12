@@ -30,9 +30,13 @@ jobs:
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/arm64
           
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          platforms: 'linux/arm64'
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -60,6 +64,9 @@ jobs:
           pwd 
           ls -la ./ib-gateway-docker/
 
+      - name: Set up ARM64 environment
+        run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
       - name: Build with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
@@ -68,7 +75,7 @@ jobs:
               ib-gateway
               novnc
           # compose-flags: "push"
-          up-flags: "--build --no-start"
+          up-flags: "--build --no-start --platform linux/arm64"
 
       - name: Push images
         run: docker compose -f docker-compose.build.yaml push ib-gateway novnc
