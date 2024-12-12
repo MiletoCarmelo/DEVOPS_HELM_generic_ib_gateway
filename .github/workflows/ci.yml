@@ -62,7 +62,8 @@ jobs:
         run: |
           ls -la 
           pwd 
-          
+          ls -la ./ib-gateway-docker/
+
       - name: Build with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
