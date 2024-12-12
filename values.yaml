@@ -42,11 +42,34 @@ secret:
   name: "ib-gateway-secrets"
 
 # Configuration IB Gateway
-ibgateway:
-  mode: "paper"
-  port: "4001"
-  apiPort: "4002"
-  timezone: "Europe/Paris"
+mode: "live"
+port: "4001"
+apiPort: "4002"
+timezone: "Europe/Paris"
+  # Configuration des ports
+    
+ports:
+  - name: gateway
+    port: 4003
+    targetPort: 4003
+    protocol: TCP
+  - name: api
+    port: 4004
+    targetPort: 4004
+    protocol: TCP
+  - name: vnc
+    port: 5900
+    targetPort: 5900
+    protocol: TCP
+
+# Configuration des ressources
+resources:
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
 
 probes:
   liveness:

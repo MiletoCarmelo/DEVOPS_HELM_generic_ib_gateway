@@ -1,4 +1,4 @@
-{{- if or .Values.ibgateway.env .Values.ibgateway.image -}}
+{{- if or .Values.env .Values.image -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8,58 +8,58 @@ spec:
     spec:
       containers:
         - name: ib-gateway
-          {{- if .Values.ibgateway.image }}
-          image: {{ .Values.ibgateway.image.repository }}:{{ .Values.ibgateway.image.tag }}
-          imagePullPolicy: {{ .Values.ibgateway.image.pullPolicy | default "Always" }}
+          {{- if .Values.image }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
           {{- end }}
           
-          {{- if or .Values.ibgateway.env .Values.ibgateway.secret }}
+          {{- if or .Values.env .Values.secret }}
           env:
-            {{- if .Values.ibgateway.secret }}
+            {{- if .Values.secret }}
             - name: TWS_USERID
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.ibgateway.secret.name }}
+                  name: {{ .Values.secret.name }}
                   key: username
             - name: TWS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.ibgateway.secret.name }}
+                  name: {{ .Values.secret.name }}
                   key: password
-            {{- if .Values.ibgateway.secret.account }}
+            {{- if .Values.secret.account }}
             - name: IB_ACCOUNT
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.ibgateway.secret.name }}
+                  name: {{ .Values.secret.name }}
                   key: account
             {{- end }}
             {{- end }}
 
-            {{- if .Values.ibgateway.mode }}
+            {{- if .Values.mode }}
             - name: TRADING_MODE
-              value: {{ .Values.ibgateway.mode | quote }}
+              value: {{ .Values.mode | quote }}
             {{- end }}
 
-            {{- if .Values.ibgateway.timezone }}
+            {{- if .Values.timezone }}
             - name: TZ
-              value: {{ .Values.ibgateway.timezone | quote }}
+              value: {{ .Values.timezone | quote }}
             - name: TIME_ZONE
-              value: {{ .Values.ibgateway.timezone | quote }}
+              value: {{ .Values.timezone | quote }}
             {{- end }}
 
-            {{- if .Values.ibgateway.javaHeapSize }}
+            {{- if .Values.javaHeapSize }}
             - name: JAVA_HEAP_SIZE
-              value: {{ .Values.ibgateway.javaHeapSize | quote }}
+              value: {{ .Values.javaHeapSize | quote }}
             {{- end }}
 
-            {{- with .Values.ibgateway.env }}
+            {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
 
-          {{- if .Values.ibgateway.ports }}
+          {{- if .Values.ports }}
           ports:
-            {{- range .Values.ibgateway.ports }}
+            {{- range .Values.ports }}
             - name: {{ .name }}
               containerPort: {{ .port }}
               {{- if .targetPort }}
@@ -69,17 +69,17 @@ spec:
             {{- end }}
           {{- end }}
 
-          {{- if .Values.ibgateway.resources }}
+          {{- if .Values.resources }}
           resources:
-            {{- toYaml .Values.ibgateway.resources | nindent 12 }}
+            {{- toYaml .Values.resources | nindent 12 }}
           {{- end }}
 
-          {{- if .Values.ibgateway.probes }}
-          {{- with .Values.ibgateway.probes.liveness }}
+          {{- if .Values.probes }}
+          {{- with .Values.probes.liveness }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.ibgateway.probes.readiness }}
+          {{- with .Values.probes.readiness }}
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
