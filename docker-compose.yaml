@@ -1,6 +1,7 @@
 name: algo-trader
 services:
   ib-gateway:
+    platform: linux/arm64
     restart: always
     build:
       context: ./ib-gateway-docker/stable
@@ -21,6 +22,7 @@ services:
       - ib-network
 
   novnc:
+    platform: linux/arm64
     build:
       context: .
       dockerfile: novnc.Dockerfile
