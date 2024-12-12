@@ -136,7 +136,7 @@ apiVersion: v2
 name: generic-ib-gateway-backend
 description: A Helm chart for deploying Interactive Brokers Gateway on Kubernetes
 type: application
-version: 0.1.1
+version: 0.1.2
 appVersion: "1.0.0"
 
 ==== ./scripts/novnc-start.sh ====
@@ -269,12 +269,10 @@ log "success" "Configuration terminée avec succès !"
 ==== ./.github/workflows/ci.yml ====
 
 name: CI
-
 on:
   push:
     branches:
       - main
-
 env:
   BRANCH_PAGES: github-pages
   REGISTRY: ghcr.io
@@ -291,13 +289,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: 'false'  # Cette option garantit que les submodules sont clonés
+          submodules: 'false'
 
       - name: Checkout to aarch64 branch
         run: |
           git clone https://github.com/gnzsnz/ib-gateway-docker.git 
           cd ib-gateway-docker
-          git checkout aarch64  # Checkout to the aarch64 branch
+          git checkout aarch64
           cd ..
 
       - name: Set up QEMU
@@ -320,42 +318,38 @@ jobs:
       - name: Set lowercase IMAGE_NAME
         id: set_image_name
         run: |
-          echo "IMAGE_NAME_LOWER=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "IMAGE_NAME_LOWER=$(echo '${{ github.repository }}/ib-gateway' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
+      - name: Create .env file
+        run: |
+          echo "TWS_USERID=demo" >> .env
+          echo "TWS_PASSWORD=demo" >> .env
+          echo "TRADING_MODE=paper" >> .env
+          echo "TIME_ZONE=Europe/Paris" >> .env
+          echo "VNC_SERVER_PASSWORD=demo" >> .env
+
+      - name: Check ls & pwd 
+        run: |
+          ls -la 
+          pwd 
+          ls -la ./ib-gateway-docker/
+
+      - name: Build with Docker Compose
+        uses: hoverkraft-tech/compose-action@v2.0.2
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+          compose-file: docker-compose.build.yaml
+          services: |
+              ib-gateway
+              novnc
+          # compose-flags: "push"
+          up-flags: "--build --no-start"
 
-      - name: Set up Docker Compose
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/download/v2.10.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose --version
-
-      - name: Check ls  and pwd 
-        run: |
-          sudo ls -la 
-          sudo pwd
-    
-      - name: Build and push with Docker Compose
-        run: |
-          docker-compose -f docker-compose.yaml build  # Build the services defined in the docker-compose file
-          docker-compose -f docker-compose.yaml push   # Push the built images to the registry
-
-      # Optionally, you can also add an additional step to clean up or prune images if needed:
-      - name: Cleanup Docker images
-        run: |
-          docker system prune -f --all --volumes
-
+      - name: Push images
+        run: docker compose -f docker-compose.build.yaml push ib-gateway novnc
+          
 
   release-chart:
-    # needs: build-and-push-image
+    needs: build-and-push-image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main branch
@@ -740,6 +734,22 @@ spec:
                   number: {{ .Values.ibgateway.apiPort }}
   {{- end }}
 {{- end }}
+
+==== ./docker-compose.build.yaml ====
+
+name: algo-trader
+services:
+  ib-gateway:
+    build:
+      context: ./ib-gateway-docker/stable
+      dockerfile: Dockerfile
+    image: ${REGISTRY}/${IMAGE_NAME_LOWER}:latest-arm64
+
+  novnc:
+    build:
+      context: .
+      dockerfile: novnc.Dockerfile
+    image: ${REGISTRY}/${IMAGE_NAME_LOWER}-novnc:latest-arm64
 
 ==== ./docker-compose.yaml ====
 
