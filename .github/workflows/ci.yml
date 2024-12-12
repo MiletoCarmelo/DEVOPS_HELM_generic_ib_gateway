@@ -77,6 +77,10 @@ jobs:
       - name: Push images
         run: docker compose -f docker-compose.build.yaml push ib-gateway novnc
           
+      - name: Check Docker image info
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64
+          docker inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64 --format '{{.Architecture}}'
 
   release-chart:
     # needs: build-and-push-image
