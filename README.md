@@ -1,1 +1,0 @@
-# DEVOPS_HELM_generic_ib_gateway
