@@ -21,11 +21,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: 'true'  # Cette option garantit que les submodules sont clonés
+          submodules: 'false'  # Cette option garantit que les submodules sont clonés
 
-      - name: Update submodules fot ib-gateway
+      - name: Checkout to aarch64 branch
         run: |
-          git submodule update --init --recursive
+          git clone https://github.com/gnzsnz/ib-gateway-docker.git 
+          cd ib-gateway-docker
+          git checkout aarch64  # Checkout to the aarch64 branch
+          cd ..
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
