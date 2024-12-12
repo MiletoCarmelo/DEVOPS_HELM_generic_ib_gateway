@@ -69,8 +69,7 @@ jobs:
         with:
           compose-file: "./docker-compose.build.yaml"
           services: "ib-gateway novnc"
-          up-flags: "--build"
-          compose-flags: "push" 
+          compose-flags: "build push"  # Les commandes séparées par un espace
 
   release-chart:
     needs: build-and-push-image
