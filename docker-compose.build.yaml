@@ -2,12 +2,12 @@ name: algo-trader
 services:
   ib-gateway:
     build:
-      context: ../ib-gateway-docker/stable
+      context: ./ib-gateway-docker/stable
       dockerfile: Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}:latest
 
   novnc:
     build:
-      context: ..
+      context: .
       dockerfile: novnc.Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}-novnc:latest
