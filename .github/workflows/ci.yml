@@ -64,20 +64,12 @@ jobs:
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
           compose-file: "./docker-compose.yaml"
-          services: "ib-gateway"
           up-flags: "--build"
-  
-      - name: Build novnc
-        uses: hoverkraft-tech/compose-action@v2.0.2
-        with:
-          compose-file: "./docker-compose.yaml"
-          services: "novnc"
-          up-flags: "--build"
+
 
       - name: Push images
         run: |
           docker-compose push ib-gateway
-          docker-compose push novnc
 
   release-chart:
     needs: build-and-push-image
