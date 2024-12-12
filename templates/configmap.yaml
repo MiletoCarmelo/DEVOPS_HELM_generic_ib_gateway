@@ -6,10 +6,10 @@ metadata:
   labels:
     {{- include "ib-gateway.labels" . | nindent 4 }}
 data:
-  TWS_PORT: "{{ .Values.ibgateway.port }}"
-  API_PORT: "{{ .Values.ibgateway.apiPort }}"
-  TRADING_MODE: "{{ .Values.ibgateway.mode }}"
-  TZ: "{{ .Values.ibgateway.timezone }}"
+  TWS_PORT: "{{ .Values.port }}"
+  API_PORT: "{{ .Values.apiPort }}"
+  TRADING_MODE: "{{ .Values.mode }}"
+  TZ: "{{ .Values.timezone }}"
   LOG_LEVEL: "{{ .Values.logging.level }}"
   {{- if .Values.security.autoRestartOnDisconnect }}
   IBC_AUTO_RESTART_ON_DISCONNECT: "yes"

@@ -12,11 +12,11 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.ibgateway.apiPort | int }}
+    - port: {{ .Values.apiPort | int }}
       targetPort: api
       protocol: TCP
       name: api
-    - port: {{ .Values.ibgateway.port | int }}
+    - port: {{ .Values.port | int }}
       targetPort: tws
       protocol: TCP
       name: tws
