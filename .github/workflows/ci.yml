@@ -64,7 +64,7 @@ jobs:
           pwd 
           ls -la ./ib-gateway-docker/
 
-      - name: Build and Push with Docker Compose
+      - name: Build with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
           compose-file: docker-compose.build.yaml
