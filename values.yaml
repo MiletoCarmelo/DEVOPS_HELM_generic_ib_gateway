@@ -1,4 +1,9 @@
 # values.yaml
+image:
+  repository: ghcr.io/gnzsnz/ib-gateway
+  tag: "stable"
+  pullPolicy: IfNotPresent
+
 nameOverride: ""
 fullnameOverride: ""
 
