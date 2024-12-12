@@ -15,7 +15,13 @@ serviceAccount:
 service:
   type: ClusterIP
   annotations: {}
-  
+
+persistence:
+  enabled: false
+  accessMode: ReadWriteOnce
+  storageClass: standard
+  size: 10Gi
+
 # Configuration du namespace
 namespace:
   name: "trading"
