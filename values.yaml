@@ -26,6 +26,9 @@ persistence:
 namespace:
   name: "trading"
 
+ingress:
+  enabled: true
+
 # Configuration des secrets
 secret:
   name: "ib-gateway-secrets"
