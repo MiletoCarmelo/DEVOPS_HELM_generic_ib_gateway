@@ -18,7 +18,7 @@ ENV DISPLAY_WIDTH=1280
 ENV DISPLAY_HEIGHT=720
 
 # Script de démarrage
-COPY novnc-start.sh /
-RUN chmod +x /novnc-start.sh
+COPY /scripts/novnc-start.sh /scripts/novnc-start.sh
+RUN chmod +x /scripts/novnc-start.sh
 
 CMD ["/scripts/novnc-start.sh"]
