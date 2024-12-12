@@ -71,8 +71,9 @@ jobs:
           services: |
               ib-gateway
               novnc
-          up-flags: "--build --no-start"
           compose-flags: push
+          up-flags: "--build --no-start"
+          
 
   release-chart:
     needs: build-and-push-image
