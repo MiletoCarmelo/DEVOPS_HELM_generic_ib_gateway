@@ -63,16 +63,16 @@ jobs:
           ls -la 
           pwd 
           ls -la ./ib-gateway-docker/
-
+          
       - name: Build and Push with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
           compose-file: "./docker-compose.build.yaml"
           services: |
-              ib-gateway
-              novnc
+            ib-gateway
+            novnc
           up-flags: "--build"
-          compose-flags: "--push"
+          compose-flags: "push"
 
   release-chart:
     needs: build-and-push-image
