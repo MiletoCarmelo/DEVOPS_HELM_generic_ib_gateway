@@ -15,7 +15,7 @@ spec:
     spec:
        {{- if .Values.nodeSelector }}
       nodeSelector:
-        kubernetes.io/arch: arm64  # Force l'utilisation d'un nœud ARM64
+        kubernetes.io/arch: {{ .Values.nodeSelector.type }}
       {{- end }}
       containers:
         - name: ib-gateway
