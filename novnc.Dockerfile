@@ -1,4 +1,5 @@
-FROM debian:bullseye-slim
+# Spécifier explicitement la plateforme ARM64
+FROM --platform=linux/arm64 debian:bullseye-slim
 
 # Installation des dépendances
 RUN apt-get update && apt-get install -y \
