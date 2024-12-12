@@ -21,13 +21,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: 'false'  # Cette option garantit que les submodules sont clonés
+          submodules: 'false'
 
       - name: Checkout to aarch64 branch
         run: |
           git clone https://github.com/gnzsnz/ib-gateway-docker.git 
           cd ib-gateway-docker
-          git checkout aarch64  # Checkout to the aarch64 branch
+          git checkout aarch64
           cd ..
 
       - name: Set up QEMU
@@ -50,42 +50,33 @@ jobs:
       - name: Set lowercase IMAGE_NAME
         id: set_image_name
         run: |
-          echo "IMAGE_NAME_LOWER=$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "IMAGE_NAME_LOWER=$(echo '${{ github.repository }}/ib-gateway' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Set up Docker Compose
+      - name: Create .env file
         run: |
-          sudo curl -L "https://github.com/docker/compose/releases/download/v2.10.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose --version
+          echo "TWS_USERID=demo" >> .env
+          echo "TWS_PASSWORD=demo" >> .env
+          echo "TRADING_MODE=paper" >> .env
+          echo "TIME_ZONE=Europe/Paris" >> .env
+          echo "VNC_SERVER_PASSWORD=demo" >> .env
 
-      - name: Check ls  and pwd 
+      - name: Modify docker-compose.yaml for GHCR
         run: |
-          sudo ls -la 
-          sudo pwd
-    
+          sed -i "s|build:|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest\n    build:|g" docker-compose.yaml
+          cat docker-compose.yaml
+
       - name: Build and push with Docker Compose
         run: |
-          docker-compose -f docker-compose.yaml build  # Build the services defined in the docker-compose file
-          docker-compose -f docker-compose.yaml push   # Push the built images to the registry
+          docker-compose build --pull
+          docker images
+          docker-compose push
 
-      # Optionally, you can also add an additional step to clean up or prune images if needed:
-      - name: Cleanup Docker images
+      - name: Verify pushed images
         run: |
-          docker system prune -f --all --volumes
-
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest
 
   release-chart:
-    # needs: build-and-push-image
+    needs: build-and-push-image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main branch
