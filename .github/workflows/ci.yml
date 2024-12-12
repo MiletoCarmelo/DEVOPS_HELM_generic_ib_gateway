@@ -68,8 +68,11 @@ jobs:
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
           compose-file: "./docker-compose.build.yaml"
-          services: "ib-gateway novnc"
-          compose-flags: "build push"  # Les commandes séparées par un espace
+          services: |
+              ib-gateway
+              novnc
+          up-flags: "--build"
+          compose-flags: "push" 
 
   release-chart:
     needs: build-and-push-image
