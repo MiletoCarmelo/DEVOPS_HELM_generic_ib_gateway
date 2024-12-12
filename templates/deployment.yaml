@@ -1,10 +1,17 @@
-{{- if or .Values.env .Values.image -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-ibgateway
+  name: {{ include "ib-gateway.name" . }}-ibgateway
+  labels:
+    app: {{ include "ib-gateway.name" . }}-ibgateway
 spec:
+  selector:
+    matchLabels:
+      app: {{ include "ib-gateway.name" . }}-ibgateway  # Ajout des matchLabels
   template:
+    metadata:
+      labels:
+        app: {{ include "ib-gateway.name" . }}-ibgateway  # Les mêmes labels que dans matchLabels
     spec:
       containers:
         - name: ib-gateway
@@ -47,41 +54,7 @@ spec:
               value: {{ .Values.timezone | quote }}
             {{- end }}
 
-            {{- if .Values.javaHeapSize }}
-            - name: JAVA_HEAP_SIZE
-              value: {{ .Values.javaHeapSize | quote }}
-            {{- end }}
-
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
-
-          {{- if .Values.ports }}
-          ports:
-            {{- range .Values.ports }}
-            - name: {{ .name }}
-              containerPort: {{ .port }}
-              {{- if .targetPort }}
-              targetPort: {{ .targetPort }}
-              {{- end }}
-              protocol: {{ .protocol | default "TCP" }}
-            {{- end }}
-          {{- end }}
-
-          {{- if .Values.resources }}
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-          {{- end }}
-
-          {{- if .Values.probes }}
-          {{- with .Values.probes.liveness }}
-          livenessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.probes.readiness }}
-          readinessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- end }}
-{{- end }}
