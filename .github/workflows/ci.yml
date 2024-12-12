@@ -1,10 +1,8 @@
 name: CI
-
 on:
   push:
     branches:
       - main
-
 env:
   BRANCH_PAGES: github-pages
   REGISTRY: ghcr.io
@@ -60,17 +58,18 @@ jobs:
           echo "TIME_ZONE=Europe/Paris" >> .env
           echo "VNC_SERVER_PASSWORD=demo" >> .env
 
-      - name: Build ib-gateway
+      # Construction des images
+      - name: Build with Docker Compose
         uses: hoverkraft-tech/compose-action@v2.0.2
         with:
-          compose-file: "./docker-compose.yaml"
-          # services: "ib-gateway"
-          # up-flags: "--build"
+          compose-file: "./ci/docker-compose.build.yaml"
+          up-flags: "--build"
+          services: "ib-gateway novnc"
 
-
+      # Push des images
       - name: Push images
         run: |
-          docker-compose push ib-gateway
+          docker-compose -f ci/docker-compose.build.yaml push
 
   release-chart:
     needs: build-and-push-image

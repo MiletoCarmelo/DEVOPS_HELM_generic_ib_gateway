@@ -2,9 +2,7 @@ name: algo-trader
 services:
   ib-gateway:
     restart: always
-    build:
-      context: ./ib-gateway-docker/stable
-      dockerfile: Dockerfile
+    image: ${REGISTRY}/${IMAGE_NAME_LOWER}:latest
     environment:
       TWS_USERID: ${TWS_USERID}
       TWS_PASSWORD: ${TWS_PASSWORD}
@@ -21,9 +19,7 @@ services:
       - ib-network
 
   novnc:
-    build:
-      context: .
-      dockerfile: novnc.Dockerfile
+    image: ${REGISTRY}/${IMAGE_NAME_LOWER}-novnc:latest
     environment:
       - DISPLAY_WIDTH=1280
       - DISPLAY_HEIGHT=720
