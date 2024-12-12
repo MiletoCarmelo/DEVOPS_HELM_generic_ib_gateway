@@ -75,8 +75,8 @@ jobs:
     
       - name: Build and push with Docker Compose
         run: |
-          docker-compose -f docker-compose.yml build  # Build the services defined in the docker-compose file
-          docker-compose -f docker-compose.yml push   # Push the built images to the registry
+          docker-compose -f ../docker-compose.yml build  # Build the services defined in the docker-compose file
+          docker-compose -f ../docker-compose.yml push   # Push the built images to the registry
 
       # Optionally, you can also add an additional step to clean up or prune images if needed:
       - name: Cleanup Docker images
