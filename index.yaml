@@ -3,9 +3,9 @@ entries:
   generic-ib-gateway-backend:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2024-12-13T10:11:45.10170023Z"
+    created: "2024-12-13T11:40:55.942688975Z"
     description: A Helm chart for deploying Interactive Brokers Gateway on Kubernetes
-    digest: 689d74dea1a637b59d52ce2a86414abf9f66894610c64b81708ad6af083c358e
+    digest: 7e0d98ad739416473c782dac52ae422b11ecde77b3954963d7043a609dae7ec4
     name: generic-ib-gateway-backend
     type: application
     urls:
@@ -42,4 +42,4 @@ entries:
     urls:
     - https://raw.githubusercontent.com/MiletoCarmelo/DEVOPS_HELM_generic_ib_gateway/github-pages/ib-gateway-0.1.0.tgz
     version: 0.1.0
-generated: "2024-12-13T10:11:45.099149522Z"
+generated: "2024-12-13T11:40:55.939794658Z"
