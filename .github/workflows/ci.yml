@@ -16,16 +16,6 @@ jobs:
  build-and-push-image:
    runs-on: self-hosted
    steps:
-
-    - name: Check host information
-      run: |
-        echo "Architecture: $(uname -m)"
-        echo "IP Address: $(curl -s ifconfig.me)"
-        echo "Hostname: $(hostname)"
-        echo "OS Details: $(uname -a)"
-        echo "CPU Info: $(lscpu | grep 'Architecture')"
-        ip addr show
-
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
@@ -33,16 +23,19 @@ jobs:
 
     - name: Checkout to aarch64 branch
       run: |
-        git clone https://github.com/gnzsnz/ib-gateway-docker.git
+        git clone https://github.com/gnzsnz/ib-gateway-docker.git 
         cd ib-gateway-docker
         git checkout aarch64
         cd ..
-
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
-    
+      with:
+        platforms: 'linux/arm64'
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      with:
+        platforms: 'linux/arm64'
 
     - name: Log in to the Container registry
       uses: docker/login-action@v3
@@ -55,7 +48,6 @@ jobs:
       id: set_image_name
       run: |
         echo "IMAGE_NAME_LOWER=$(echo '${{ github.repository }}/ib-gateway' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
     - name: Create .env file
       run: |
         echo "TWS_USERID=demo" >> .env
@@ -63,7 +55,11 @@ jobs:
         echo "TRADING_MODE=paper" >> .env
         echo "TIME_ZONE=Europe/Paris" >> .env
         echo "VNC_SERVER_PASSWORD=demo" >> .env
-
+    - name: Check ls & pwd 
+      run: |
+        ls -la 
+        pwd 
+        ls -la ./ib-gateway-docker/
     - name: Build with Docker Compose
       uses: hoverkraft-tech/compose-action@v2.0.2
       with:
@@ -95,7 +91,7 @@ jobs:
         echo "OS Details: $(uname -a)"
         echo "CPU Info: $(lscpu | grep 'Architecture')"
         ip addr show
-        
+
     - name: Checkout main branch
       uses: actions/checkout@v4
       with:
