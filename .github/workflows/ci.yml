@@ -48,23 +48,20 @@ jobs:
         echo "TIME_ZONE=Europe/Paris" >> .env
         echo "VNC_SERVER_PASSWORD=demo" >> .env
 
-    - name: Check ls & pwd 
+    - name: Set up Docker Compose
       run: |
-        ls -la 
-        pwd 
-        ls -la ./ib-gateway-docker/
-
-    - name: Build with Docker Compose
-      uses: hoverkraft-tech/compose-action@v2.0.2
-      with:
-        compose-file: docker-compose.build.yaml
-        services: |
-            ib-gateway
-            novnc
-        up-flags: "--build --no-start"
-
-    - name: Push images
-      run: docker compose -f docker-compose.build.yaml push ib-gateway novnc
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.10.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose --version
+    
+    - name: Build and push with Docker Compose
+      run: |
+        docker-compose -f docker-compose.build.yaml build  # Build the services defined in the docker-compose file
+        docker-compose -f docker-compose.build.yaml push   # Push the built images to the registry
+      # Optionally, you can also add an additional step to clean up or prune images if needed:
+    - name: Cleanup Docker images
+      run: |
+        docker system prune -f --all --volumes
 
     - name: Check Docker image info
       run: |
