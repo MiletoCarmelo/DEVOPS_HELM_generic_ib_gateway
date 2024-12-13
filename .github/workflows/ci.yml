@@ -16,95 +16,86 @@ jobs:
  build-and-push-image:
    runs-on: self-hosted
    steps:
-     - name: Checkout repository
-       uses: actions/checkout@v4
-       with:
-         submodules: 'false'
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: 'false'
 
-     - name: Checkout to aarch64 branch
-       run: |
-         git clone https://github.com/gnzsnz/ib-gateway-docker.git
-         cd ib-gateway-docker
-         git checkout aarch64
-         cd ..
+    - name: Checkout to aarch64 branch
+      run: |
+        git clone https://github.com/gnzsnz/ib-gateway-docker.git
+        cd ib-gateway-docker
+        git checkout aarch64
+        cd ..
 
-     - name: Set up QEMU
-       uses: docker/setup-qemu-action@v3
-     
-     - name: Set up Docker Buildx
-       uses: docker/setup-buildx-action@v3
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-     - name: Log in to the Container registry
-       uses: docker/login-action@v3
-       with:
-         registry: ${{ env.REGISTRY }}
-         username: ${{ github.actor }}
-         password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Log in to the Container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-     - name: Set lowercase IMAGE_NAME
-       id: set_image_name
-       run: |
-         echo "IMAGE_NAME_LOWER=$(echo '${{ github.repository }}/ib-gateway' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+    - name: Set lowercase IMAGE_NAME
+      id: set_image_name
+      run: |
+        echo "IMAGE_NAME_LOWER=$(echo '${{ github.repository }}/ib-gateway' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-     - name: Create .env file
-       run: |
-         echo "TWS_USERID=demo" >> .env
-         echo "TWS_PASSWORD=demo" >> .env
-         echo "TRADING_MODE=paper" >> .env
-         echo "TIME_ZONE=Europe/Paris" >> .env
-         echo "VNC_SERVER_PASSWORD=demo" >> .env
+    - name: Create .env file
+      run: |
+        echo "TWS_USERID=demo" >> .env
+        echo "TWS_PASSWORD=demo" >> .env
+        echo "TRADING_MODE=paper" >> .env
+        echo "TIME_ZONE=Europe/Paris" >> .env
+        echo "VNC_SERVER_PASSWORD=demo" >> .env
 
-     - name: Build and push ib-gateway
-       uses: docker/build-push-action@v5
-       with:
-         context: ./ib-gateway-docker/stable
-         file: ./ib-gateway-docker/stable/Dockerfile
-         platforms: linux/arm64
-         push: true
-         build-args: |
-           TARGETARCH=arm64
-         tags: |
-           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64
+    - name: Build with Docker Compose
+      uses: hoverkraft-tech/compose-action@v2.0.2
+      with:
+        compose-file: docker-compose.build.yaml
+        services: |
+            ib-gateway
+            novnc
+        # compose-flags: "push"
+        up-flags: "--build --no-start"
 
-     - name: Build and push novnc
-       uses: docker/build-push-action@v5
-       with:
-         context: .
-         file: novnc.Dockerfile
-         platforms: linux/arm64
-         push: true
-         tags: |
-           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}-novnc:latest-arm64
+    - name: Push images
+      run: docker compose -f docker-compose.build.yaml push ib-gateway novnc
 
-     - name: Check Docker image info
-       run: |
-         docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64
-         docker inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64 --format '{{.Architecture}}'
+    - name: Check Docker image info
+      run: |
+        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64
+        docker inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64 --format '{{.Architecture}}'
 
  release-chart:
    needs: build-and-push-image
    runs-on: ubuntu-latest
    steps:
-     - name: Checkout main branch
-       uses: actions/checkout@v4
-       with:
-         ref: main
+    - name: Checkout main branch
+      uses: actions/checkout@v4
+      with:
+        ref: main
 
-     - name: Update values.yaml with new image
-       run: |
-         sed -i "s|repository:.*|repository: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}|" ./values.yaml
-         sed -i "s|tag:.*|tag: latest-arm64|" ./values.yaml
+    - name: Update values.yaml with new image
+      run: |
+        sed -i "s|repository:.*|repository: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}|" ./values.yaml
+        sed -i "s|tag:.*|tag: latest-arm64|" ./values.yaml
 
-     - name: Publish Helm chart
-       uses: stefanprodan/helm-gh-pages@master
-       with:
-         token: ${{ secrets.GITHUB_TOKEN }}
-         charts_dir: ..
-         branch: ${{ env.BRANCH_PAGES }}
-         charts_url: https://raw.githubusercontent.com/${{ github.repository }}/${{ env.BRANCH_PAGES }}
-         linting: false
+    - name: Publish Helm chart
+      uses: stefanprodan/helm-gh-pages@master
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        charts_dir: ..
+        branch: ${{ env.BRANCH_PAGES }}
+        charts_url: https://raw.githubusercontent.com/${{ github.repository }}/${{ env.BRANCH_PAGES }}
+        linting: false
 
-     - name: Summary
-       run: |
-         echo "Chart URL: https://raw.githubusercontent.com/${{ github.repository }}/${{ env.BRANCH_PAGES }}"
-         echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64"
+    - name: Summary
+      run: |
+        echo "Chart URL: https://raw.githubusercontent.com/${{ github.repository }}/${{ env.BRANCH_PAGES }}"
+        echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64"
