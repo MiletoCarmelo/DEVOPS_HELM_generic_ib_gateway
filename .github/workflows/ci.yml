@@ -27,15 +27,6 @@ jobs:
         cd ib-gateway-docker
         git checkout aarch64
         cd ..
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: 'linux/arm64'
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      with:
-        platforms: 'linux/arm64'
 
     - name: Log in to the Container registry
       uses: docker/login-action@v3
@@ -48,6 +39,7 @@ jobs:
       id: set_image_name
       run: |
         echo "IMAGE_NAME_LOWER=$(echo '${{ github.repository }}/ib-gateway' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
     - name: Create .env file
       run: |
         echo "TWS_USERID=demo" >> .env
@@ -55,11 +47,13 @@ jobs:
         echo "TRADING_MODE=paper" >> .env
         echo "TIME_ZONE=Europe/Paris" >> .env
         echo "VNC_SERVER_PASSWORD=demo" >> .env
+
     - name: Check ls & pwd 
       run: |
         ls -la 
         pwd 
         ls -la ./ib-gateway-docker/
+
     - name: Build with Docker Compose
       uses: hoverkraft-tech/compose-action@v2.0.2
       with:
@@ -67,7 +61,6 @@ jobs:
         services: |
             ib-gateway
             novnc
-        # compose-flags: "push"
         up-flags: "--build --no-start"
 
     - name: Push images
