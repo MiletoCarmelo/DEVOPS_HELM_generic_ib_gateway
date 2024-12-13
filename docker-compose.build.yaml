@@ -1,14 +1,14 @@
 name: algo-trader
 services:
   ib-gateway:
-    platform: linux/arm64
+    # platform: linux/arm64
     build:
       context: ./ib-gateway-docker/stable
       dockerfile: Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}:latest-arm64
   
   novnc:
-    platform: linux/arm64
+    # platform: linux/arm64
     build:
       context: .
       dockerfile: novnc.Dockerfile
