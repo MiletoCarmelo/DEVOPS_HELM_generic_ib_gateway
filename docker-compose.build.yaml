@@ -6,7 +6,7 @@ services:
       context: ./ib-gateway-docker/stable
       dockerfile: Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}:latest-arm64
-
+  
   novnc:
     platform: linux/arm64
     build:
