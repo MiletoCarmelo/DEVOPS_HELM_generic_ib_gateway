@@ -83,7 +83,7 @@ jobs:
 
  release-chart:
    needs: build-and-push-image
-   runs-on: self-hosted
+   runs-on: ubuntu-latest
    steps:
      - name: Checkout main branch
        uses: actions/checkout@v4
