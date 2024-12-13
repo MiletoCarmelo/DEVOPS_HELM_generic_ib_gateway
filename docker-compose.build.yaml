@@ -2,6 +2,8 @@ name: algo-trader
 services:
   ib-gateway:
     build:
+      # Using latest tag for arm64 compatibility
+      # Stable version is not compatible with arm64
       context: ./ib-gateway-docker/latest
       dockerfile: Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}:latest-arm64

@@ -13,7 +13,7 @@ serviceAccount:
   annotations: {}
 
 service:
-  type: ClusterIP
+  type: NodePort  # Changer de ClusterIP à NodePort
   annotations: {}
 
 persistence:
@@ -95,7 +95,7 @@ novnc:
     tag: latest
     pullPolicy: IfNotPresent
   service:
-    type: ClusterIP
+    type: NodePort  # Changer de ClusterIP à NodePort
     port: 6080
   display:
     width: "1280"
