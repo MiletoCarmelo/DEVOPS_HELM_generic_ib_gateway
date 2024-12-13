@@ -14,7 +14,7 @@ permissions:
 
 jobs:
  build-and-push-image:
-   runs-on: ubuntu-latest-arm64
+   runs-on: self-hosted
    steps:
      - name: Checkout repository
        uses: actions/checkout@v4
