@@ -2,7 +2,7 @@ name: algo-trader
 services:
   ib-gateway:
     build:
-      context: ./ib-gateway-docker/stable
+      context: ./ib-gateway-docker/latest
       dockerfile: Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}:latest-arm64
   novnc:
