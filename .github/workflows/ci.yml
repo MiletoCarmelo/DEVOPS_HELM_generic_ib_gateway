@@ -75,7 +75,7 @@ jobs:
               ib-gateway
               novnc
           # compose-flags: "push"
-          up-flags: "--build --no-start --platform linux/arm64"
+          up-flags: "--build --no-start"
 
       - name: Push images
         run: docker compose -f docker-compose.build.yaml push ib-gateway novnc
