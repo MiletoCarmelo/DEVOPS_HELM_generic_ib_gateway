@@ -22,6 +22,17 @@ env:
   - name: TWS_SETTINGS_PATH
     value: "/config/ibgateway/Jts"      
 
+volumes:
+  - name: config-volume
+    configMap:
+      name: ib-gateway-config
+volumeMounts:
+  - name: config-volume
+    mountPath: /config/ibgateway/jts.ini.tmpl
+    subPath: jts.ini.tmpl
+  - name: config-volume
+    mountPath: /config/ibc/config.ini.tmpl
+    subPath: config.ini.tmpl
 
 serviceAccount:
   create: true
