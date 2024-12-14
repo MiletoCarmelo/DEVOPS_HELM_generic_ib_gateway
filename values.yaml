@@ -8,6 +8,19 @@ image:
 nameOverride: ""
 fullnameOverride: ""
 
+env:  
+  - name: TRADING_MODE
+    value: "live"
+  - name: BYPASS_WARNING
+    value: "yes"
+  - name: TIME_ZONE
+    value: "Europe/Paris"
+  - name: TZ
+    value: "Europe/Paris"
+  - name: JAVA_HEAP_SIZE
+    value: "1024"
+
+
 serviceAccount:
   create: true
   name: ""
