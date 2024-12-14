@@ -43,7 +43,7 @@ service:
   annotations: {}
 
 persistence:
-  enabled: false
+  enabled: true
   accessMode: ReadWriteOnce
   storageClass: standard
   size: 10Gi
