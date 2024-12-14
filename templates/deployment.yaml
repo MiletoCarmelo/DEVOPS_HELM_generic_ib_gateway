@@ -16,7 +16,7 @@ spec:
       volumes:
         - name: config-volume
           configMap:
-            name: ib-gateway-config
+            name: ib-gateway-files-config
       containers:
         - name: ib-gateway
           {{- if .Values.image }}
@@ -25,11 +25,9 @@ spec:
           {{- end }}
           volumeMounts:
             - name: config-volume
-              mountPath: /config/ibgateway/jts.ini.tmpl
-              subPath: jts.ini.tmpl
+              mountPath: /config/ibgateway
             - name: config-volume
-              mountPath: /config/ibc/config.ini.tmpl
-              subPath: config.ini.tmpl
+              mountPath: /config/ibc
           env:
             {{- range .Values.env }}
             - name: {{ .name }}

@@ -49,8 +49,35 @@ image:
   tag: "stable"
   pullPolicy: IfNotPresent
 
+
 nameOverride: ""
 fullnameOverride: ""
+
+env:  
+  - name: TRADING_MODE
+    value: "live"
+  - name: BYPASS_WARNING
+    value: "yes"
+  - name: TIME_ZONE
+    value: "Europe/Paris"
+  - name: TZ
+    value: "Europe/Paris"
+  - name: JAVA_HEAP_SIZE
+    value: "1024"
+  - name: TWS_SETTINGS_PATH
+    value: "/config/ibgateway/Jts"      
+
+volumes:
+  - name: config-volume
+    configMap:
+      name: ib-gateway-files-config 
+volumeMounts:
+
+volumeMounts:
+  - name: config-volume
+    mountPath: /config/ibgateway  # Montage du répertoire parent
+  - name: config-volume
+    mountPath: /config/ibc       # Montage du répertoire parent pour IBC
 
 serviceAccount:
   create: true
@@ -58,7 +85,7 @@ serviceAccount:
   annotations: {}
 
 service:
-  type: ClusterIP
+  type: NodePort  # Changer de ClusterIP à NodePort
   annotations: {}
 
 persistence:
@@ -87,11 +114,34 @@ secret:
   name: "ib-gateway-secrets"
 
 # Configuration IB Gateway
-ibgateway:
-  mode: "paper"
-  port: "4001"
-  apiPort: "4002"
-  timezone: "Europe/Paris"
+mode: "live"
+port: "4001"
+apiPort: "4002"
+timezone: "Europe/Paris"
+  # Configuration des ports
+    
+ports:
+  - name: gateway
+    port: 4003
+    targetPort: 4003
+    protocol: TCP
+  - name: api
+    port: 4004
+    targetPort: 4004
+    protocol: TCP
+  - name: vnc
+    port: 5900
+    targetPort: 5900
+    protocol: TCP
+
+# Configuration des ressources
+resources:
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
 
 probes:
   liveness:
@@ -117,7 +167,7 @@ novnc:
     tag: latest
     pullPolicy: IfNotPresent
   service:
-    type: ClusterIP
+    type: NodePort  # Changer de ClusterIP à NodePort
     port: 6080
   display:
     width: "1280"
@@ -136,7 +186,7 @@ apiVersion: v2
 name: generic-ib-gateway-backend
 description: A Helm chart for deploying Interactive Brokers Gateway on Kubernetes
 type: application
-version: 0.1.2
+version: 0.1.4
 appVersion: "1.0.0"
 
 ==== ./scripts/novnc-start.sh ====
@@ -238,9 +288,9 @@ fi
 log "info" "Création du secret ${SECRET_NAME}..."
 if kubectl create secret generic "${SECRET_NAME}" \
     -n "${NAMESPACE}" \
-    --from-literal=username="${TWS_USERID}" \
-    --from-literal=password="${TWS_PASSWORD}" \
-    --from-literal=account="${IB_ACCOUNT}" \
+    --from-literal=TWS_USERID="${TWS_USERID}" \
+    --from-literal=TWS_PASSWORD="${TWS_PASSWORD}" \
+    --from-literal=IB_ACCOUNT="${IB_ACCOUNT}" \
     --dry-run=client -o yaml | kubectl apply -f - ; then
     log "success" "Secret ${SECRET_NAME} créé avec succès"
 else
@@ -270,111 +320,114 @@ log "success" "Configuration terminée avec succès !"
 
 name: CI
 on:
-  push:
-    branches:
-      - main
+ push:
+   branches:
+     - main
 env:
-  BRANCH_PAGES: github-pages
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/ib-gateway
+ BRANCH_PAGES: github-pages
+ REGISTRY: ghcr.io
+ IMAGE_NAME: ${{ github.repository }}/ib-gateway
 
 permissions:
-  contents: write
-  packages: write
+ contents: write
+ packages: write
 
 jobs:
-  build-and-push-image:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: 'false'
+ build-and-push-image:
+   runs-on: self-hosted
+   steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: 'false'
 
-      - name: Checkout to aarch64 branch
-        run: |
-          git clone https://github.com/gnzsnz/ib-gateway-docker.git 
-          cd ib-gateway-docker
-          git checkout aarch64
-          cd ..
+    - name: Checkout to aarch64 branch
+      run: |
+        git clone https://github.com/gnzsnz/ib-gateway-docker.git 
+        cd ib-gateway-docker
+        git checkout aarch64
+        cd ..
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: 'linux/amd64,linux/arm64'
+    - name: Log in to the Container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          platforms: 'linux/amd64,linux/arm64'
+    - name: Set lowercase IMAGE_NAME
+      id: set_image_name
+      run: |
+        echo "IMAGE_NAME_LOWER=$(echo '${{ github.repository }}/ib-gateway' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create .env file
+      run: |
+        echo "TWS_USERID=demo" >> .env
+        echo "TWS_PASSWORD=demo" >> .env
+        echo "TRADING_MODE=paper" >> .env
+        echo "TIME_ZONE=Europe/Paris" >> .env
+        echo "VNC_SERVER_PASSWORD=demo" >> .env
 
-      - name: Set lowercase IMAGE_NAME
-        id: set_image_name
-        run: |
-          echo "IMAGE_NAME_LOWER=$(echo '${{ github.repository }}/ib-gateway' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+    - name: Check ls & pwd 
+      run: |
+        ls -la 
+        pwd 
+        ls -la ./ib-gateway-docker/
 
-      - name: Create .env file
-        run: |
-          echo "TWS_USERID=demo" >> .env
-          echo "TWS_PASSWORD=demo" >> .env
-          echo "TRADING_MODE=paper" >> .env
-          echo "TIME_ZONE=Europe/Paris" >> .env
-          echo "VNC_SERVER_PASSWORD=demo" >> .env
+    - name: Build with Docker Compose
+      uses: hoverkraft-tech/compose-action@v2.0.2
+      with:
+        compose-file: docker-compose.build.yaml
+        services: |
+            ib-gateway
+            novnc
+        up-flags: "--build --no-start"
 
-      - name: Check ls & pwd 
-        run: |
-          ls -la 
-          pwd 
-          ls -la ./ib-gateway-docker/
+    - name: Push images
+      run: docker compose -f docker-compose.build.yaml push ib-gateway novnc
 
-      - name: Build with Docker Compose
-        uses: hoverkraft-tech/compose-action@v2.0.2
-        with:
-          compose-file: docker-compose.build.yaml
-          services: |
-              ib-gateway
-              novnc
-          # compose-flags: "push"
-          up-flags: "--build --no-start"
+    - name: Check Docker image info
+      run: |
+        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64
+        docker inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64 --format '{{.Architecture}}'
 
-      - name: Push images
-        run: docker compose -f docker-compose.build.yaml push ib-gateway novnc
-          
+ release-chart:
+   needs: build-and-push-image
+   runs-on: ubuntu-latest
+   steps:
 
-  release-chart:
-    needs: build-and-push-image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout main branch
-        uses: actions/checkout@v4
-        with:
-          ref: main
+    - name: Check host information
+      run: |
+        echo "Architecture: $(uname -m)"
+        echo "IP Address: $(curl -s ifconfig.me)"
+        echo "Hostname: $(hostname)"
+        echo "OS Details: $(uname -a)"
+        echo "CPU Info: $(lscpu | grep 'Architecture')"
+        ip addr show
 
-      - name: Update values.yaml with new image
-        run: |
-          sed -i "s|repository:.*|repository: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}|" ./values.yaml
-          sed -i "s|tag:.*|tag: latest|" ./values.yaml
+    - name: Checkout main branch
+      uses: actions/checkout@v4
+      with:
+        ref: main
 
-      - name: Publish Helm chart
-        uses: stefanprodan/helm-gh-pages@master
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          charts_dir: ..
-          branch: ${{ env.BRANCH_PAGES }}
-          charts_url: https://raw.githubusercontent.com/${{ github.repository }}/${{ env.BRANCH_PAGES }}
-          linting: false
+    - name: Update values.yaml with new image
+      run: |
+        sed -i "s|repository:.*|repository: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}|" ./values.yaml
+        sed -i "s|tag:.*|tag: latest-arm64|" ./values.yaml
 
-      - name: Summary
-        run: |
-          echo "Chart URL: https://raw.githubusercontent.com/${{ github.repository }}/${{ env.BRANCH_PAGES }}"
-          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest"
+    - name: Publish Helm chart
+      uses: stefanprodan/helm-gh-pages@master
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        charts_dir: ..
+        branch: ${{ env.BRANCH_PAGES }}
+        charts_url: https://raw.githubusercontent.com/${{ github.repository }}/${{ env.BRANCH_PAGES }}
+        linting: false
+
+    - name: Summary
+      run: |
+        echo "Chart URL: https://raw.githubusercontent.com/${{ github.repository }}/${{ env.BRANCH_PAGES }}"
+        echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LOWER }}:latest-arm64"
 
 ==== ./.github/workflows/repo-initialization.yml ====
 
@@ -465,10 +518,11 @@ metadata:
   labels:
     {{- include "ib-gateway.labels" . | nindent 4 }}
 data:
-  TWS_PORT: "{{ .Values.ibgateway.port }}"
-  API_PORT: "{{ .Values.ibgateway.apiPort }}"
-  TRADING_MODE: "{{ .Values.ibgateway.mode }}"
-  TZ: "{{ .Values.ibgateway.timezone }}"
+  # Configuration existante
+  TWS_PORT: "{{ .Values.port }}"
+  API_PORT: "{{ .Values.apiPort }}"
+  TRADING_MODE: "{{ .Values.mode }}"
+  TZ: "{{ .Values.timezone }}"
   LOG_LEVEL: "{{ .Values.logging.level }}"
   {{- if .Values.security.autoRestartOnDisconnect }}
   IBC_AUTO_RESTART_ON_DISCONNECT: "yes"
@@ -476,6 +530,18 @@ data:
   {{- if .Values.vnc.enabled }}
   VNC_SERVER_PASSWORD: "{{ .Values.vnc.password }}"
   {{- end }}
+  
+---
+# Deuxième ConfigMap (nouveau, avec un nom statique)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ib-gateway-files-config  # Nom statique
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+data:
+  jts.ini.tmpl: {{ .Files.Get "config/ibgateway/jts.ini.tmpl" | quote }}
+  config.ini.tmpl: {{ .Files.Get "config/ibc/config.ini.tmpl" | quote }}
 
 ==== ./templates/service.yaml ====
 
@@ -493,11 +559,11 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.ibgateway.apiPort | int }}
+    - port: {{ .Values.apiPort | int }}
       targetPort: api
       protocol: TCP
       name: api
-    - port: {{ .Values.ibgateway.port | int }}
+    - port: {{ .Values.port | int }}
       targetPort: tws
       protocol: TCP
       name: tws
@@ -513,91 +579,48 @@ spec:
 
 ==== ./templates/deployment.yaml ====
 
-# templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "ib-gateway.fullname" . }}
-  namespace: {{ .Values.namespace.name }}
+  name: {{ include "ib-gateway.name" . }}
   labels:
-    {{- include "ib-gateway.labels" . | nindent 4 }}
+    app: {{ include "ib-gateway.name" . }}
 spec:
-  replicas: 1
   selector:
     matchLabels:
-      {{- include "ib-gateway.selectorLabels" . | nindent 6 }}
+      app: {{ include "ib-gateway.name" . }}
   template:
     metadata:
       labels:
-        {{- include "ib-gateway.selectorLabels" . | nindent 8 }}
+        app: {{ include "ib-gateway.name" . }}
     spec:
-      serviceAccountName: {{ include "ib-gateway.serviceAccountName" . }}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: ib-gateway-config
       containers:
         - name: ib-gateway
-          image: {{ include "ib-gateway.image" . }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: tws
-              containerPort: {{ .Values.ibgateway.port | int }}
-              protocol: TCP
-            - name: api
-              containerPort: {{ .Values.ibgateway.apiPort | int }}
-              protocol: TCP
-            {{- if .Values.vnc.enabled }}
-            - name: vnc
-              containerPort: {{ .Values.vnc.port | int }}
-              protocol: TCP
-            {{- end }}
-          env:
-            - name: TWS_USERID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secret.name }}
-                  key: username
-            - name: TWS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secret.name }}
-                  key: password
-            - name: trading_MODE
-              value: {{ .Values.ibgateway.mode | quote }}
-            - name: TZ
-              value: {{ .Values.ibgateway.timezone | quote }}
-          envFrom:
-            - configMapRef:
-                name: {{ include "ib-gateway.fullname" . }}-config
-          {{- if .Values.probes.readiness.enabled }}
-          readinessProbe:
-            tcpSocket:
-              port: api
-            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          {{- if .Values.image }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
           {{- end }}
-          {{- if .Values.probes.liveness.enabled }}
-          livenessProbe:
-            tcpSocket:
-              port: api
-            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
-            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
-          {{- end }}
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.persistence.enabled }}
           volumeMounts:
-            - name: data
-              mountPath: /root/Jts
-              subPath: config
-            - name: data
-              mountPath: /root/IBController/Logs
-              subPath: logs
-          {{- end }}
-      {{- if .Values.persistence.enabled }}
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: {{ include "ib-gateway.fullname" . }}-pvc
-      {{- end }}
-
+            - name: config-volume
+              mountPath: /config/ibgateway/jts.ini.tmpl
+              subPath: jts.ini.tmpl
+            - name: config-volume
+              mountPath: /config/ibc/config.ini.tmpl
+              subPath: config.ini.tmpl
+          env:
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              {{- if .valueFrom }}
+              valueFrom:
+                {{- toYaml .valueFrom | nindent 16 }}
+              {{- else if .value }}
+              value: {{ .value | quote }}
+              {{- end }}
+            {{- end }}
 
 ==== ./templates/novnc.yaml ====
 
@@ -741,10 +764,11 @@ name: algo-trader
 services:
   ib-gateway:
     build:
-      context: ./ib-gateway-docker/stable
+      # Using latest tag for arm64 compatibility
+      # Stable version is not compatible with arm64
+      context: ./ib-gateway-docker/latest
       dockerfile: Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}:latest-arm64
-
   novnc:
     build:
       context: .
@@ -756,6 +780,7 @@ services:
 name: algo-trader
 services:
   ib-gateway:
+    platform: linux/arm64
     restart: always
     build:
       context: ./ib-gateway-docker/stable
@@ -776,6 +801,7 @@ services:
       - ib-network
 
   novnc:
+    platform: linux/arm64
     build:
       context: .
       dockerfile: novnc.Dockerfile
