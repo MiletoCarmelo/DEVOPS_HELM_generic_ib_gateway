@@ -19,6 +19,8 @@ env:
     value: "Europe/Paris"
   - name: JAVA_HEAP_SIZE
     value: "1024"
+  - name: TWS_SETTINGS_PATH
+    value: "/config/ibgateway/Jts"      
 
 
 serviceAccount:
