@@ -13,7 +13,7 @@ spec:
       labels:
         app: {{ include "ib-gateway.name" . }}
     spec:
-       {{- if .Values.nodeSelector }}
+      {{- if .Values.nodeSelector }}
       nodeSelector:
         kubernetes.io/arch: {{ .Values.nodeSelector.type }}
       {{- end }}
@@ -23,42 +23,13 @@ spec:
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
           {{- end }}
-          
-          {{- if or .Values.env .Values.secret }}
           env:
-            {{- if .Values.secret }}
-            - name: TWS_USERID
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              {{- if .valueFrom }}
               valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secret.name }}
-                  key: username
-            - name: TWS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secret.name }}
-                  key: password
-            {{- if .Values.secret.account }}
-            - name: IB_ACCOUNT
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secret.name }}
-                  key: account
+                {{- toYaml .valueFrom | nindent 16 }}
+              {{- else if .value }}
+              value: {{ .value | quote }}
+              {{- end }}
             {{- end }}
-            {{- end }}
-
-            {{- if .Values.mode }}
-            - name: TRADING_MODE
-              value: {{ .Values.mode | quote }}
-            {{- end }}
-
-            {{- if .Values.timezone }}
-            - name: TZ
-              value: {{ .Values.timezone | quote }}
-            - name: TIME_ZONE
-              value: {{ .Values.timezone | quote }}
-            {{- end }}
-
-            {{- with .Values.env }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
-          {{- end }}

@@ -89,9 +89,9 @@ fi
 log "info" "Création du secret ${SECRET_NAME}..."
 if kubectl create secret generic "${SECRET_NAME}" \
     -n "${NAMESPACE}" \
-    --from-literal=username="${TWS_USERID}" \
-    --from-literal=password="${TWS_PASSWORD}" \
-    --from-literal=account="${IB_ACCOUNT}" \
+    --from-literal=TWS_USERID="${TWS_USERID}" \
+    --from-literal=TWS_PASSWORD="${TWS_PASSWORD}" \
+    --from-literal=IB_ACCOUNT="${IB_ACCOUNT}" \
     --dry-run=client -o yaml | kubectl apply -f - ; then
     log "success" "Secret ${SECRET_NAME} créé avec succès"
 else
