@@ -14,8 +14,8 @@ services:
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}-novnc:latest-arm64
   python-service:
     build:
-      context: ./python-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: python.Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}-python-service:latest-arm64
     environment:
       - PYTHON_ENV=production
