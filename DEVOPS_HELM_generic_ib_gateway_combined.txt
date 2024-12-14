@@ -88,9 +88,9 @@ service:
   annotations: {}
 
 persistence:
-  enabled: false
+  enabled: true
   accessMode: ReadWriteOnce
-  storageClass: standard
+  storageClass: local-path
   size: 10Gi
 
 # Configuration du namespace
@@ -185,7 +185,7 @@ apiVersion: v2
 name: generic-ib-gateway-backend
 description: A Helm chart for deploying Interactive Brokers Gateway on Kubernetes
 type: application
-version: 0.1.4
+version: 0.1.6
 appVersion: "1.0.0"
 
 ==== ./scripts/novnc-start.sh ====
@@ -597,6 +597,27 @@ spec:
         - name: config-volume
           configMap:
             name: ib-gateway-files-config
+        - name: config-storage
+          persistentVolumeClaim:
+            claimName: {{ include "ib-gateway.fullname" . }}-pvc
+      initContainers:
+        - name: init-config
+          image: busybox
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /config/ibgateway /config/ibc
+              cp /config/templates/jts.ini.tmpl /config/ibgateway/
+              cp /config/templates/config.ini.tmpl /config/ibc/
+              chmod -R 777 /config/ibgateway /config/ibc
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config/templates
+            - name: config-storage
+              mountPath: /config/ibgateway
+            - name: config-storage
+              mountPath: /config/ibc
       containers:
         - name: ib-gateway
           {{- if .Values.image }}
@@ -604,9 +625,9 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
           {{- end }}
           volumeMounts:
-            - name: config-volume
+            - name: config-storage
               mountPath: /config/ibgateway
-            - name: config-volume
+            - name: config-storage
               mountPath: /config/ibc
           env:
             {{- range .Values.env }}
