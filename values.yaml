@@ -45,7 +45,7 @@ service:
 persistence:
   enabled: true
   accessMode: ReadWriteOnce
-  storageClass: standard
+  storageClass: local-path
   size: 10Gi
 
 # Configuration du namespace
