@@ -25,7 +25,7 @@ env:
 volumes:
   - name: config-volume
     configMap:
-      name: ib-gateway-config
+      name: ib-gateway-files-config 
 volumeMounts:
   - name: config-volume
     mountPath: /config/ibgateway/jts.ini.tmpl

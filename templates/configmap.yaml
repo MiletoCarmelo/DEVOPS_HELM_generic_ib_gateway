@@ -6,6 +6,7 @@ metadata:
   labels:
     {{- include "ib-gateway.labels" . | nindent 4 }}
 data:
+  # Configuration existante
   TWS_PORT: "{{ .Values.port }}"
   API_PORT: "{{ .Values.apiPort }}"
   TRADING_MODE: "{{ .Values.mode }}"
@@ -17,3 +18,15 @@ data:
   {{- if .Values.vnc.enabled }}
   VNC_SERVER_PASSWORD: "{{ .Values.vnc.password }}"
   {{- end }}
+  
+---
+# Deuxième ConfigMap (nouveau, avec un nom statique)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ib-gateway-files-config  # Nom statique
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+data:
+  jts.ini.tmpl: {{ .Files.Get "config/ibgateway/jts.ini.tmpl" | quote }}
+  config.ini.tmpl: {{ .Files.Get "config/ibc/config.ini.tmpl" | quote }}

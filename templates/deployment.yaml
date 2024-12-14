@@ -13,16 +13,23 @@ spec:
       labels:
         app: {{ include "ib-gateway.name" . }}
     spec:
-      {{- if .Values.nodeSelector }}
-      nodeSelector:
-        kubernetes.io/arch: {{ .Values.nodeSelector.type }}
-      {{- end }}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: ib-gateway-config
       containers:
         - name: ib-gateway
           {{- if .Values.image }}
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
           {{- end }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config/ibgateway/jts.ini.tmpl
+              subPath: jts.ini.tmpl
+            - name: config-volume
+              mountPath: /config/ibc/config.ini.tmpl
+              subPath: config.ini.tmpl
           env:
             {{- range .Values.env }}
             - name: {{ .name }}
