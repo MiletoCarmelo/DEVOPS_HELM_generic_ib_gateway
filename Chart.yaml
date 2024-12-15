@@ -1,5 +1,6 @@
 # Chart.yaml
 apiVersion: v2
+
 name: generic-ib-gateway-backend
 description: A Helm chart for deploying Interactive Brokers Gateway on Kubernetes
 type: application
