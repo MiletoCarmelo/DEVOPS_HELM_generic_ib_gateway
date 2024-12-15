@@ -12,6 +12,8 @@ services:
       context: .
       dockerfile: novnc.Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}-novnc:latest-arm64
+    depends_on:
+      - ib-gateway
   python-service:
     build:
       context: .
@@ -21,6 +23,5 @@ services:
       - PYTHON_ENV=production
     volumes:
       - ./scripts:/app/scripts
-    command: ["python3", "/app/scripts/your_script.py"]
     depends_on:
       - ib-gateway
