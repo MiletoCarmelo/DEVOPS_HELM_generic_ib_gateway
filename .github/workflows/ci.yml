@@ -65,7 +65,7 @@ jobs:
         up-flags: "--build --no-start"
 
     - name: Push images
-      run: docker compose -f docker-compose.build.yaml push ib-gateway novnc
+      run: docker compose -f docker-compose.build.yaml push ib-gateway novnc python-service
 
     - name: Check Docker image info
       run: |
