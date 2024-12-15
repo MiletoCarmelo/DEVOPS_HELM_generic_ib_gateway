@@ -84,8 +84,20 @@ serviceAccount:
   annotations: {}
 
 service:
-  type: NodePort  # Changer de ClusterIP à NodePort
-  annotations: {}
+  type: NodePort
+  ports:
+    - name: tws
+      port: 4001
+      targetPort: 4001
+      protocol: TCP
+    - name: api
+      port: 4002
+      targetPort: 4002
+      protocol: TCP
+    - name: vnc
+      port: 5900
+      targetPort: 5900
+      protocol: TCP
 
 persistence:
   enabled: true
@@ -114,24 +126,7 @@ secret:
 
 # Configuration IB Gateway
 mode: "live"
-port: "4001"
-apiPort: "4002"
 timezone: "Europe/Paris"
-  # Configuration des ports
-    
-ports:
-  - name: gateway
-    port: 4003
-    targetPort: 4003
-    protocol: TCP
-  - name: api
-    port: 4004
-    targetPort: 4004
-    protocol: TCP
-  - name: vnc
-    port: 5900
-    targetPort: 5900
-    protocol: TCP
 
 # Configuration des ressources
 resources:
@@ -178,6 +173,21 @@ vnc:
   port: "5900"
   password: "myVNCpass"
 
+# Python Service Configuration
+pythonService:
+  enabled: true
+  image:
+    repository: ${REGISTRY}/${IMAGE_NAME_LOWER}-python-service
+    tag: latest-arm64
+    pullPolicy: Always
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
 ==== ./Chart.yaml ====
 
 # Chart.yaml
@@ -186,7 +196,7 @@ apiVersion: v2
 name: generic-ib-gateway-backend
 description: A Helm chart for deploying Interactive Brokers Gateway on Kubernetes
 type: application
-version: 0.2.2
+version: 0.2.3
 appVersion: "1.0.0"
 
 ==== ./scripts/novnc-start.sh ====
@@ -208,7 +218,6 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 
 # Variables
-NAMESPACE="trading"
 SECRET_NAME="ib-gateway-secrets" # Doit correspondre à .Values.secret.name dans values.yaml
 ENV_FILE=".env"
 
@@ -253,12 +262,14 @@ log "info" "Lecture des variables depuis $ENV_FILE..."
 TWS_USERID=$(grep TWS_USERID "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 TWS_PASSWORD=$(grep TWS_PASSWORD "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 IB_ACCOUNT=$(grep IB_ACCOUNT "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+NAMESPACE=$(grep NAMESPACE "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 
 # Vérification des variables requises
 missing_vars=()
 [ -z "$TWS_USERID" ] && missing_vars+=("TWS_USERID")
 [ -z "$TWS_PASSWORD" ] && missing_vars+=("TWS_PASSWORD")
 [ -z "$IB_ACCOUNT" ] && missing_vars+=("IB_ACCOUNT")
+[ -z "$NAMESPACE" ] && missing_vars+=("NAMESPACE")
 
 if [ ${#missing_vars[@]} -ne 0 ]; then
     log "error" "Variables manquantes dans $ENV_FILE:"
@@ -520,8 +531,8 @@ metadata:
     {{- include "ib-gateway.labels" . | nindent 4 }}
 data:
   # Configuration existante
-  TWS_PORT: "{{ .Values.port }}"
-  API_PORT: "{{ .Values.apiPort }}"
+  TWS_PORT: "{{ (index .Values.service.ports 0).port }}"
+  API_PORT: "{{ (index .Values.service.ports 1).port }}"
   TRADING_MODE: "{{ .Values.mode }}"
   TZ: "{{ .Values.timezone }}"
   LOG_LEVEL: "{{ .Values.logging.level }}"
@@ -544,39 +555,27 @@ data:
   jts.ini.tmpl: {{ .Files.Get "config/ibgateway/jts.ini.tmpl" | quote }}
   config.ini.tmpl: {{ .Files.Get "config/ibc/config.ini.tmpl" | quote }}
 
+
+
 ==== ./templates/service.yaml ====
 
-# templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "ib-gateway.fullname" . }}
   labels:
     {{- include "ib-gateway.labels" . | nindent 4 }}
-  {{- with .Values.service.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.apiPort | int }}
-      targetPort: api
-      protocol: TCP
-      name: api
-    - port: {{ .Values.port | int }}
-      targetPort: tws
-      protocol: TCP
-      name: tws
-    {{- if .Values.vnc.enabled }}
-    - port: {{ .Values.vnc.port | int }}
-      targetPort: vnc
-      protocol: TCP
-      name: vnc
-    {{- end }}
+  {{- range .Values.service.ports }}
+  - port: {{ .port }}
+    targetPort: {{ .targetPort }}
+    protocol: {{ .protocol }}
+    name: {{ .name }}
+  {{- end }}
   selector:
     {{- include "ib-gateway.selectorLabels" . | nindent 4 }}
-
 
 ==== ./templates/deployment.yaml ====
 
@@ -711,6 +710,18 @@ spec:
     app.kubernetes.io/component: novnc
 {{- end }}
 
+==== ./templates/configmap-python.yaml ====
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}-python-scripts
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: python-service
+data:
+  {{- (.Files.Glob "python-scripts/*").AsConfig | nindent 2 }}
+
 ==== ./templates/pvc.yaml ====
 
 # templates/pvc.yaml
@@ -778,6 +789,46 @@ spec:
   {{- end }}
 {{- end }}
 
+==== ./templates/python.yaml ====
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}-python-service
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: python-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ib-gateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: python-service
+  template:
+    metadata:
+      labels:
+        {{- include "ib-gateway.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: python-service
+    spec:
+      containers:
+        - name: python-service
+          image: {{ .Values.pythonService.image.repository }}:{{ .Values.pythonService.image.tag }}
+          imagePullPolicy: {{ .Values.pythonService.image.pullPolicy }}
+          env:
+            - name: PYTHON_ENV
+              value: production
+            - name: IB_GATEWAY_HOST
+              value: {{ include "ib-gateway.fullname" . }}
+            - name: IB_GATEWAY_PORT
+              value: "{{ (index .Values.service.ports 1).port }}"
+          volumeMounts:
+            - name: scripts
+              mountPath: /app/scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "ib-gateway.fullname" . }}-python-scripts
+
 ==== ./docker-compose.build.yaml ====
 
 name: algo-trader
@@ -827,9 +878,9 @@ services:
       VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD}
       JAVA_HEAP_SIZE: 1024
     ports:
-      - "100.64.102.47:4001:4003"
-      - "100.64.102.47:4002:4004"
-      - "100.64.102.47:5900:5900"
+      - "4001:4001"
+      - "4002:4002"
+      - "5900:5900"
     networks:
       - ib-network
 

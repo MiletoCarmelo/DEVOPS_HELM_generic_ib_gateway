@@ -7,19 +7,11 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.port }}
-      targetPort: {{ .Values.port }}
-      protocol: TCP
-      name: tws
-    - port: {{ .Values.apiPort }}
-      targetPort: {{ .Values.apiPort }}
-      protocol: TCP
-      name: api
-    {{- if .Values.vnc.enabled }}
-    - port: {{ .Values.vnc.port }}
-      targetPort: {{ .Values.vnc.port }}
-      protocol: TCP
-      name: vnc
-    {{- end }}
+  {{- range .Values.service.ports }}
+  - port: {{ .port }}
+    targetPort: {{ .targetPort }}
+    protocol: {{ .protocol }}
+    name: {{ .name }}
+  {{- end }}
   selector:
     {{- include "ib-gateway.selectorLabels" . | nindent 4 }}

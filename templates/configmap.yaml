@@ -7,8 +7,8 @@ metadata:
     {{- include "ib-gateway.labels" . | nindent 4 }}
 data:
   # Configuration existante
-  TWS_PORT: "{{ .Values.port }}"
-  API_PORT: "{{ .Values.apiPort }}"
+  TWS_PORT: "{{ (index .Values.service.ports 0).port }}"
+  API_PORT: "{{ (index .Values.service.ports 1).port }}"
   TRADING_MODE: "{{ .Values.mode }}"
   TZ: "{{ .Values.timezone }}"
   LOG_LEVEL: "{{ .Values.logging.level }}"

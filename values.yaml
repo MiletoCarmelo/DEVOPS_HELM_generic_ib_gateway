@@ -79,12 +79,6 @@ ingress:
 secret:
   name: "ib-gateway-secrets"
 
-# Configuration IB Gateway
-mode: "live"
-port: 4001          # Port TWS
-apiPort: 4002       # Port API
-timezone: "Europe/Paris"
-
 # Configuration des ressources
 resources:
   limits:

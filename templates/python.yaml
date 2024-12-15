@@ -27,7 +27,7 @@ spec:
             - name: IB_GATEWAY_HOST
               value: {{ include "ib-gateway.fullname" . }}
             - name: IB_GATEWAY_PORT
-              value: "{{ .Values.apiPort }}"
+              value: "{{ (index .Values.service.ports 1).port }}"
           volumeMounts:
             - name: scripts
               mountPath: /app/scripts
