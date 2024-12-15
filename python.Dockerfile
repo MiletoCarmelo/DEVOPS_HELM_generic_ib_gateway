@@ -16,10 +16,10 @@ RUN pip install --no-cache-dir \
     ib_insync
 
 # Ajouter vos scripts
-COPY ./scripts /app/scripts
+COPY ./python-scripts /app/python-scripts
 
 # S'assurer que les scripts sont exécutables
-RUN chmod +x /app/scripts/*
+RUN chmod +x /app/python-scripts/*
 
 # Maintenir le conteneur en vie
 CMD ["tail", "-f", "/dev/null"]
