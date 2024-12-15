@@ -67,9 +67,14 @@ Return the proper image name
 {{- end }}
 
 {{/*
-Get Tailscale IP from secret
+Get Tailscale IP from secret in tailscale namespace
 */}}
 {{- define "ib-gateway.tailscaleIP" -}}
-{{- $tailscaleIP := (lookup "v1" "Secret" "tailscale" "ts-secrets").data.TAILSCALE_IP | b64dec }}
-{{- default "localhost" $tailscaleIP }}
+{{- $secret := (lookup "v1" "Secret" "tailscale" "ts-secrets") }}
+{{- if $secret }}
+{{- $tailscaleIP := $secret.data.TAILSCALE_IP | b64dec }}
+{{- $tailscaleIP }}
+{{- else }}
+{{- "localhost" }}
+{{- end }}
 {{- end }}
