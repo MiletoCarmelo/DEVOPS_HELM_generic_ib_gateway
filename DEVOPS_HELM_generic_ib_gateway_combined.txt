@@ -124,10 +124,6 @@ ingress:
 secret:
   name: "ib-gateway-secrets"
 
-# Configuration IB Gateway
-mode: "live"
-timezone: "Europe/Paris"
-
 # Configuration des ressources
 resources:
   limits:
@@ -196,7 +192,7 @@ apiVersion: v2
 name: generic-ib-gateway-backend
 description: A Helm chart for deploying Interactive Brokers Gateway on Kubernetes
 type: application
-version: 0.2.3
+version: 0.2.4
 appVersion: "1.0.0"
 
 ==== ./scripts/novnc-start.sh ====
@@ -375,7 +371,7 @@ jobs:
       run: |
         echo "TWS_USERID=demo" >> .env
         echo "TWS_PASSWORD=demo" >> .env
-        echo "TRADING_MODE=paper" >> .env
+        echo "TRADING_MODE=live" >> .env
         echo "TIME_ZONE=Europe/Paris" >> .env
         echo "VNC_SERVER_PASSWORD=demo" >> .env
 
@@ -533,8 +529,8 @@ data:
   # Configuration existante
   TWS_PORT: "{{ (index .Values.service.ports 0).port }}"
   API_PORT: "{{ (index .Values.service.ports 1).port }}"
-  TRADING_MODE: "{{ .Values.mode }}"
-  TZ: "{{ .Values.timezone }}"
+  TRADING_MODE: "{{ (index .Values.env 0).value }}"
+  TZ: "{{ (index .Values.env 2).value }}"
   LOG_LEVEL: "{{ .Values.logging.level }}"
   {{- if .Values.security.autoRestartOnDisconnect }}
   IBC_AUTO_RESTART_ON_DISCONNECT: "yes"
@@ -872,7 +868,7 @@ services:
     environment:
       TWS_USERID: ${TWS_USERID}
       TWS_PASSWORD: ${TWS_PASSWORD}
-      TRADING_MODE: ${TRADING_MODE:-paper}
+      TRADING_MODE: ${TRADING_MODE:-live}
       TIME_ZONE: ${TIME_ZONE:-Europe/Paris}
       TZ: ${TIME_ZONE:-Europe/Paris}
       VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD}
