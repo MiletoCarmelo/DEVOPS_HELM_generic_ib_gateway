@@ -1,8 +1,4 @@
 from IB import ib_historical as ibh 
-from ta import ta as ta 
-from utils import plots as p
-from utils import utils_pd as upd
-from orders import strategy as stg
 
 ### Get historical data ###
 

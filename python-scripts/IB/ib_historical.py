@@ -51,6 +51,7 @@ from dotenv import load_dotenv
 import os
 from typing import Dict, List, Optional
 
+
 # Load environment configuration
 load_dotenv(dotenv_path="../.env")
 
