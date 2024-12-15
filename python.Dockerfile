@@ -11,15 +11,15 @@ RUN apt-get update && apt-get install -y \
 # Installer poetry via pip
 RUN pip install poetry
 
+# Ajouter les scripts
+COPY ./python-scripts /app/python-scripts
+
 # Copier seulement pyproject.toml et poetry.lock (si existe) d'abord
 COPY ./python-scripts/pyproject.toml ./python-scripts/poetry.lock* /app/
 
 # Installer les dépendances avec poetry
 RUN poetry config virtualenvs.create false \
-    && poetry install
-
-# Ajouter les scripts
-COPY ./python-scripts /app/python-scripts
+    && poetry install --no-interaction --no-ansi --no-root
 
 # S'assurer que les scripts sont exécutables
 RUN chmod +x /app/python-scripts/*
