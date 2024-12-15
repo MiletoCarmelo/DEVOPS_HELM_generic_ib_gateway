@@ -25,7 +25,7 @@ spec:
           imagePullPolicy: {{ .Values.novnc.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: {{ .Values.novnc.service.containerPort }}
               protocol: TCP
           env:
             - name: DISPLAY_WIDTH
