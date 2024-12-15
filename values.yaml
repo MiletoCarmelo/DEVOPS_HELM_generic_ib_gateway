@@ -132,3 +132,18 @@ vnc:
   enabled: true
   port: "5900"
   password: "myVNCpass"
+
+# Python Service Configuration
+pythonService:
+  enabled: true
+  image:
+    repository: ${REGISTRY}/${IMAGE_NAME_LOWER}-python-service
+    tag: latest-arm64
+    pullPolicy: Always
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"

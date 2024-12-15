@@ -30,3 +30,4 @@ metadata:
 data:
   jts.ini.tmpl: {{ .Files.Get "config/ibgateway/jts.ini.tmpl" | quote }}
   config.ini.tmpl: {{ .Files.Get "config/ibc/config.ini.tmpl" | quote }}
+

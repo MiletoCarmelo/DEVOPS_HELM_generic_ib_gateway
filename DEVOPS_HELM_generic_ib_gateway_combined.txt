@@ -182,10 +182,11 @@ vnc:
 
 # Chart.yaml
 apiVersion: v2
+
 name: generic-ib-gateway-backend
 description: A Helm chart for deploying Interactive Brokers Gateway on Kubernetes
 type: application
-version: 0.1.8
+version: 0.2.2
 appVersion: "1.0.0"
 
 ==== ./scripts/novnc-start.sh ====
@@ -380,10 +381,11 @@ jobs:
         services: |
             ib-gateway
             novnc
+            python-service
         up-flags: "--build --no-start"
 
     - name: Push images
-      run: docker compose -f docker-compose.build.yaml push ib-gateway novnc
+      run: docker compose -f docker-compose.build.yaml push ib-gateway novnc python-service
 
     - name: Check Docker image info
       run: |
@@ -792,16 +794,17 @@ services:
       context: .
       dockerfile: novnc.Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}-novnc:latest-arm64
+    depends_on:
+      - ib-gateway
   python-service:
     build:
-      context: ./python-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: python.Dockerfile
     image: ${REGISTRY}/${IMAGE_NAME_LOWER}-python-service:latest-arm64
     environment:
       - PYTHON_ENV=production
     volumes:
       - ./scripts:/app/scripts
-    command: ["python3", "/app/scripts/your_script.py"]
     depends_on:
       - ib-gateway
 

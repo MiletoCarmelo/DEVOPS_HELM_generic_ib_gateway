@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ib-gateway.fullname" . }}-python-scripts
+  labels:
+    {{- include "ib-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: python-service
+data:
+  {{- (.Files.Glob "python-scripts/*").AsConfig | nindent 2 }}
