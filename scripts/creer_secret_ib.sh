@@ -9,7 +9,6 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 
 # Variables
-NAMESPACE="trading"
 SECRET_NAME="ib-gateway-secrets" # Doit correspondre à .Values.secret.name dans values.yaml
 ENV_FILE=".env"
 
@@ -54,12 +53,14 @@ log "info" "Lecture des variables depuis $ENV_FILE..."
 TWS_USERID=$(grep TWS_USERID "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 TWS_PASSWORD=$(grep TWS_PASSWORD "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 IB_ACCOUNT=$(grep IB_ACCOUNT "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+NAMESPACE=$(grep NAMESPACE "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 
 # Vérification des variables requises
 missing_vars=()
 [ -z "$TWS_USERID" ] && missing_vars+=("TWS_USERID")
 [ -z "$TWS_PASSWORD" ] && missing_vars+=("TWS_PASSWORD")
 [ -z "$IB_ACCOUNT" ] && missing_vars+=("IB_ACCOUNT")
+[ -z "$NAMESPACE" ] && missing_vars+=("NAMESPACE")
 
 if [ ${#missing_vars[@]} -ne 0 ]; then
     log "error" "Variables manquantes dans $ENV_FILE:"

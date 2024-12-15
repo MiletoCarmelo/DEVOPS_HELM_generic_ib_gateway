@@ -1,11 +1,25 @@
 FROM python:3.11-slim
 
-# Installer les dépendances nécessaires
-RUN pip install --no-cache-dir requests pandas numpy
+# Définir le répertoire de travail
+WORKDIR /app
+
+# Installer les dépendances système nécessaires
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Installer les dépendances Python
+RUN pip install --no-cache-dir \
+    requests \
+    pandas \
+    numpy \
+    ib_insync
 
 # Ajouter vos scripts
-WORKDIR /app
 COPY ./scripts /app/scripts
 
-# Commande par défaut (modifiée dans docker-compose.yml)
-CMD ["python3"]
+# S'assurer que les scripts sont exécutables
+RUN chmod +x /app/scripts/*
+
+# Maintenir le conteneur en vie
+CMD ["tail", "-f", "/dev/null"]
