@@ -71,22 +71,21 @@ ingress:
   annotations:
     tailscale.com/expose: "true"
   hosts:
-    - hostFromSecret: true  # Flag pour utiliser le secret
-      paths:
-        - path: /api
-          pathType: Prefix
-          backend:
-            service:
-              name: ibgateway
-              port:
-                number: 4001
-        - path: /vnc
-          pathType: Prefix
-          backend:
-            service:
-              name: ibgateway-novnc
-              port:
-                number: 6080
+    paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: ibgateway
+            port:
+              number: 4001
+      - path: /vnc
+        pathType: Prefix
+        backend:
+          service:
+            name: ibgateway-novnc
+            port:
+              number: 6080
 
 # Configuration des secrets
 secret:
