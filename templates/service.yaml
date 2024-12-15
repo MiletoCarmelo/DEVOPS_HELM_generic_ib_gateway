@@ -1,28 +1,23 @@
-# templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "ib-gateway.fullname" . }}
   labels:
     {{- include "ib-gateway.labels" . | nindent 4 }}
-  {{- with .Values.service.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.apiPort | int }}
-      targetPort: api
-      protocol: TCP
-      name: api
-    - port: {{ .Values.port | int }}
-      targetPort: tws
+    - port: {{ .Values.port }}
+      targetPort: {{ .Values.port }}
       protocol: TCP
       name: tws
+    - port: {{ .Values.apiPort }}
+      targetPort: {{ .Values.apiPort }}
+      protocol: TCP
+      name: api
     {{- if .Values.vnc.enabled }}
-    - port: {{ .Values.vnc.port | int }}
-      targetPort: vnc
+    - port: {{ .Values.vnc.port }}
+      targetPort: {{ .Values.vnc.port }}
       protocol: TCP
       name: vnc
     {{- end }}

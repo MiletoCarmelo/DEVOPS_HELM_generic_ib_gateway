@@ -39,8 +39,20 @@ serviceAccount:
   annotations: {}
 
 service:
-  type: NodePort  # Changer de ClusterIP à NodePort
-  annotations: {}
+  type: NodePort
+  ports:
+    - name: tws
+      port: 4001
+      targetPort: 4001
+      protocol: TCP
+    - name: api
+      port: 4002
+      targetPort: 4002
+      protocol: TCP
+    - name: vnc
+      port: 5900
+      targetPort: 5900
+      protocol: TCP
 
 persistence:
   enabled: true
@@ -69,24 +81,9 @@ secret:
 
 # Configuration IB Gateway
 mode: "live"
-port: "4001"
-apiPort: "4002"
+port: 4001          # Port TWS
+apiPort: 4002       # Port API
 timezone: "Europe/Paris"
-  # Configuration des ports
-    
-ports:
-  - name: gateway
-    port: 4003
-    targetPort: 4003
-    protocol: TCP
-  - name: api
-    port: 4004
-    targetPort: 4004
-    protocol: TCP
-  - name: vnc
-    port: 5900
-    targetPort: 5900
-    protocol: TCP
 
 # Configuration des ressources
 resources:
