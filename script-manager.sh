@@ -22,7 +22,7 @@ fi
 [ -f "$OUTPUT_FILE" ] && rm "$OUTPUT_FILE"
 
 # Trouve tous les fichiers yaml, yml et _tpl et les traite
-find "$SOURCE_DIR" \( -name "*.yaml" -o -name "*.yml" -o -name "*_tpl" -o -name "*.sh"  -o -name "Dockerfile*" -o -name "*.conf" \) | while read -r file; do
+find "$SOURCE_DIR" \( -name "*.yaml" -o -name "*.yml" -o -name "*tpl" -o -name "*.sh"  -o -name "Dockerfile*" -o -name "*.conf" \) | while read -r file; do
     # Vérifie si le fichier est lisible
     if [ -r "$file" ]; then
         # Ajoute le séparateur avec le nom du fichier

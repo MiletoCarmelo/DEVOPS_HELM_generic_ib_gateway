@@ -38,23 +38,22 @@ serviceAccount:
   name: ""
   annotations: {}
 
+
 service:
   type: NodePort
   ports:
     - name: tws
       port: 4001
-      targetPort: 4001
+      targetPort: 4003  # Changé de 4001 à 4003
       protocol: TCP
     - name: api
       port: 4002
-      targetPort: 4002
+      targetPort: 4004  # Changé de 4002 à 4004
       protocol: TCP
     - name: vnc
       port: 5900
       targetPort: 5900
       protocol: TCP
-  annotations:
-    tailscale.com/expose: "true"
 
 persistence:
   enabled: true
@@ -68,15 +67,26 @@ namespace:
 
 ingress:
   enabled: true
-  className: "nginx"  # ou votre classe d'ingress préférée
+  className: "nginx"
   annotations:
     tailscale.com/expose: "true"
   hosts:
-    - host: cquant-desktop.tailc6fb0e.ts.net
+    - hostFromSecret: true  # Flag pour utiliser le secret
       paths:
-        - path: /
+        - path: /api
           pathType: Prefix
-          port: 4002  # port API par défaut
+          backend:
+            service:
+              name: ibgateway
+              port:
+                number: 4001
+        - path: /vnc
+          pathType: Prefix
+          backend:
+            service:
+              name: ibgateway-novnc
+              port:
+                number: 6080
 
 # Configuration des secrets
 secret:

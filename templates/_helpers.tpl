@@ -65,3 +65,11 @@ Return the proper image name
 {{- define "ib-gateway.image" -}}
 {{- printf "%s:%s" .Values.image.repository .Values.image.tag -}}
 {{- end }}
+
+{{/*
+Get Tailscale IP from secret
+*/}}
+{{- define "ib-gateway.tailscaleIP" -}}
+{{- $tailscaleIP := (lookup "v1" "Secret" "tailscale" "ts-secrets").data.TAILSCALE_IP | b64dec }}
+{{- default "localhost" $tailscaleIP }}
+{{- end }}

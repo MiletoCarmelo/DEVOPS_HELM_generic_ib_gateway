@@ -24,7 +24,7 @@ fi
 [ -f "$OUTPUT_FILE" ] && rm "$OUTPUT_FILE"
 
 # Trouve tous les fichiers yaml, yml et _tpl et les traite
-find "$SOURCE_DIR" \( -name "*.yaml" -o -name "*.yml" -o -name "*_tpl" -o -name "*.sh"  -o -name "Dockerfile*" -o -name "*.conf" \) | while read -r file; do
+find "$SOURCE_DIR" \( -name "*.yaml" -o -name "*.yml" -o -name "*tpl" -o -name "*.sh"  -o -name "Dockerfile*" -o -name "*.conf" \) | while read -r file; do
     # Vérifie si le fichier est lisible
     if [ -r "$file" ]; then
         # Ajoute le séparateur avec le nom du fichier
@@ -83,16 +83,17 @@ serviceAccount:
   name: ""
   annotations: {}
 
+
 service:
   type: NodePort
   ports:
     - name: tws
       port: 4001
-      targetPort: 4001
+      targetPort: 4003  # Changé de 4001 à 4003
       protocol: TCP
     - name: api
       port: 4002
-      targetPort: 4002
+      targetPort: 4004  # Changé de 4002 à 4004
       protocol: TCP
     - name: vnc
       port: 5900
@@ -111,14 +112,26 @@ namespace:
 
 ingress:
   enabled: true
-  className: "nginx"  # ou votre classe d'ingress préférée
-  annotations: {}
+  className: "nginx"
+  annotations:
+    tailscale.com/expose: "true"
   hosts:
-    - host: ibgateway.local  # remplacez par votre nom d'hôte par défaut
+    - hostFromSecret: true  # Flag pour utiliser le secret
       paths:
-        - path: /
+        - path: /api
           pathType: Prefix
-          port: 4002  # port API par défaut
+          backend:
+            service:
+              name: ibgateway
+              port:
+                number: 4001
+        - path: /vnc
+          pathType: Prefix
+          backend:
+            service:
+              name: ibgateway-novnc
+              port:
+                number: 6080
 
 # Configuration des secrets
 secret:
@@ -259,6 +272,7 @@ TWS_USERID=$(grep TWS_USERID "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "
 TWS_PASSWORD=$(grep TWS_PASSWORD "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 IB_ACCOUNT=$(grep IB_ACCOUNT "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 NAMESPACE=$(grep NAMESPACE "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+VNC_SERVER_PASSWORD=$(grep VNC_SERVER_PASSWORD "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 
 # Vérification des variables requises
 missing_vars=()
@@ -266,6 +280,7 @@ missing_vars=()
 [ -z "$TWS_PASSWORD" ] && missing_vars+=("TWS_PASSWORD")
 [ -z "$IB_ACCOUNT" ] && missing_vars+=("IB_ACCOUNT")
 [ -z "$NAMESPACE" ] && missing_vars+=("NAMESPACE")
+[ -z "$VNC_SERVER_PASSWORD" ] && missing_vars+=("VNC_SERVER_PASSWORD")
 
 if [ ${#missing_vars[@]} -ne 0 ]; then
     log "error" "Variables manquantes dans $ENV_FILE:"
@@ -298,6 +313,7 @@ if kubectl create secret generic "${SECRET_NAME}" \
     --from-literal=TWS_USERID="${TWS_USERID}" \
     --from-literal=TWS_PASSWORD="${TWS_PASSWORD}" \
     --from-literal=IB_ACCOUNT="${IB_ACCOUNT}" \
+    --from-literal=VNC_SERVER_PASSWORD="${VNC_SERVER_PASSWORD}" \
     --dry-run=client -o yaml | kubectl apply -f - ; then
     log "success" "Secret ${SECRET_NAME} créé avec succès"
 else
@@ -514,6 +530,84 @@ metadata:
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+{{- end }}
+
+==== ./templates/_helpers.tpl ====
+
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "ib-gateway.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Create a default fully qualified app name.
+*/}}
+{{- define "ib-gateway.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "ib-gateway.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Common labels
+*/}}
+{{- define "ib-gateway.labels" -}}
+helm.sh/chart: {{ include "ib-gateway.chart" . }}
+{{ include "ib-gateway.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Selector labels
+*/}}
+{{- define "ib-gateway.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "ib-gateway.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "ib-gateway.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "ib-gateway.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return the proper image name
+*/}}
+{{- define "ib-gateway.image" -}}
+{{- printf "%s:%s" .Values.image.repository .Values.image.tag -}}
+{{- end }}
+
+{{/*
+Get Tailscale IP from secret
+*/}}
+{{- define "ib-gateway.tailscaleIP" -}}
+{{- $tailscaleIP := (lookup "v1" "Secret" "tailscale" "ts-secrets").data.TAILSCALE_IP | b64dec }}
+{{- default "localhost" $tailscaleIP }}
 {{- end }}
 
 ==== ./templates/configmap.yaml ====
@@ -746,43 +840,25 @@ metadata:
   name: {{ include "ib-gateway.fullname" . }}
   labels:
     {{- include "ib-gateway.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
-  {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
-  {{- end }}
-  {{- if .Values.ingress.hosts }}
   rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
+    - host: {{ include "ib-gateway.tailscaleIP" . }}
       http:
         paths:
-          {{- range .paths }}
+        {{- range .Values.ingress.hosts.paths }}
           - path: {{ .path }}
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "ib-gateway.fullname" $ }}
+                name: {{ .backend.service.name }}
                 port:
-                  number: {{ .port }}
-          {{- end }}
-    {{- end }}
-  {{- else }}
-  # Configuration par défaut si aucune règle n'est spécifiée
-  rules:
-    - http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "ib-gateway.fullname" . }}
-                port:
-                  number: {{ .Values.ibgateway.apiPort }}
-  {{- end }}
+                  number: {{ .backend.service.port.number }}
+        {{- end }}
 {{- end }}
 
 ==== ./templates/python.yaml ====

@@ -5,41 +5,23 @@ metadata:
   name: {{ include "ib-gateway.fullname" . }}
   labels:
     {{- include "ib-gateway.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
-  {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
-  {{- end }}
-  {{- if .Values.ingress.hosts }}
   rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
+    - host: {{ include "ib-gateway.tailscaleIP" . }}
       http:
         paths:
-          {{- range .paths }}
+        {{- range .Values.ingress.hosts.paths }}
           - path: {{ .path }}
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "ib-gateway.fullname" $ }}
+                name: {{ .backend.service.name }}
                 port:
-                  number: {{ .port }}
-          {{- end }}
-    {{- end }}
-  {{- else }}
-  # Configuration par défaut si aucune règle n'est spécifiée
-  rules:
-    - http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "ib-gateway.fullname" . }}
-                port:
-                  number: {{ .Values.ibgateway.apiPort }}
-  {{- end }}
+                  number: {{ .backend.service.port.number }}
+        {{- end }}
 {{- end }}
