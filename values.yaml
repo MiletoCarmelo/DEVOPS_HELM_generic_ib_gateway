@@ -53,6 +53,8 @@ service:
       port: 5900
       targetPort: 5900
       protocol: TCP
+  annotations:
+    tailscale.com/expose: "true"
 
 persistence:
   enabled: true
@@ -67,9 +69,10 @@ namespace:
 ingress:
   enabled: true
   className: "nginx"  # ou votre classe d'ingress préférée
-  annotations: {}
+  annotations:
+    tailscale.com/expose: "true"
   hosts:
-    - host: ibgateway.local  # remplacez par votre nom d'hôte par défaut
+    - host: cquant-desktop.tailc6fb0e.ts.net
       paths:
         - path: /
           pathType: Prefix
