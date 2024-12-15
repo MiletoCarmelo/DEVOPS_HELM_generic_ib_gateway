@@ -892,7 +892,7 @@ services:
       - VNC_HOST=ib-gateway
       - VNC_PASSWORD=${VNC_SERVER_PASSWORD}
     ports:
-      - "100.64.102.47:6080:6080"
+      - "6080:6080"
     depends_on:
       - ib-gateway
     networks:

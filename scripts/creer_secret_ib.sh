@@ -54,6 +54,7 @@ TWS_USERID=$(grep TWS_USERID "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "
 TWS_PASSWORD=$(grep TWS_PASSWORD "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 IB_ACCOUNT=$(grep IB_ACCOUNT "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 NAMESPACE=$(grep NAMESPACE "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+VNC_SERVER_PASSWORD=$(grep VNC_SERVER_PASSWORD "$ENV_FILE" | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 
 # Vérification des variables requises
 missing_vars=()
@@ -61,6 +62,7 @@ missing_vars=()
 [ -z "$TWS_PASSWORD" ] && missing_vars+=("TWS_PASSWORD")
 [ -z "$IB_ACCOUNT" ] && missing_vars+=("IB_ACCOUNT")
 [ -z "$NAMESPACE" ] && missing_vars+=("NAMESPACE")
+[ -z "$VNC_SERVER_PASSWORD" ] && missing_vars+=("VNC_SERVER_PASSWORD")
 
 if [ ${#missing_vars[@]} -ne 0 ]; then
     log "error" "Variables manquantes dans $ENV_FILE:"
@@ -93,6 +95,7 @@ if kubectl create secret generic "${SECRET_NAME}" \
     --from-literal=TWS_USERID="${TWS_USERID}" \
     --from-literal=TWS_PASSWORD="${TWS_PASSWORD}" \
     --from-literal=IB_ACCOUNT="${IB_ACCOUNT}" \
+    --from-literal=VNC_SERVER_PASSWORD="${VNC_SERVER_PASSWORD}" \
     --dry-run=client -o yaml | kubectl apply -f - ; then
     log "success" "Secret ${SECRET_NAME} créé avec succès"
 else
