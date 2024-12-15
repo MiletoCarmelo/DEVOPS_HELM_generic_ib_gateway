@@ -15,8 +15,8 @@ services:
       VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD}
       JAVA_HEAP_SIZE: 1024
     ports:
-      - "100.64.102.47:4001:4003"
-      - "100.64.102.47:4002:4004"
+      - "100.64.102.47:4001:4001"
+      - "100.64.102.47:4002:4002"
       - "100.64.102.47:5900:5900"
     networks:
       - ib-network
