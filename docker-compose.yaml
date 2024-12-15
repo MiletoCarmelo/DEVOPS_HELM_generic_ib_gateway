@@ -9,7 +9,7 @@ services:
     environment:
       TWS_USERID: ${TWS_USERID}
       TWS_PASSWORD: ${TWS_PASSWORD}
-      TRADING_MODE: ${TRADING_MODE:-paper}
+      TRADING_MODE: ${TRADING_MODE:-live}
       TIME_ZONE: ${TIME_ZONE:-Europe/Paris}
       TZ: ${TIME_ZONE:-Europe/Paris}
       VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD}

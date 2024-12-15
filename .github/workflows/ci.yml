@@ -44,7 +44,7 @@ jobs:
       run: |
         echo "TWS_USERID=demo" >> .env
         echo "TWS_PASSWORD=demo" >> .env
-        echo "TRADING_MODE=paper" >> .env
+        echo "TRADING_MODE=live" >> .env
         echo "TIME_ZONE=Europe/Paris" >> .env
         echo "VNC_SERVER_PASSWORD=demo" >> .env
 

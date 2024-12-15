@@ -9,8 +9,8 @@ data:
   # Configuration existante
   TWS_PORT: "{{ (index .Values.service.ports 0).port }}"
   API_PORT: "{{ (index .Values.service.ports 1).port }}"
-  TRADING_MODE: "{{ .Values.mode }}"
-  TZ: "{{ .Values.timezone }}"
+  TRADING_MODE: "{{ (index .Values.env 0).value }}"
+  TZ: "{{ (index .Values.env 2).value }}"
   LOG_LEVEL: "{{ .Values.logging.level }}"
   {{- if .Values.security.autoRestartOnDisconnect }}
   IBC_AUTO_RESTART_ON_DISCONNECT: "yes"
