@@ -16,7 +16,7 @@ COPY ./python-scripts/pyproject.toml ./python-scripts/poetry.lock* /app/
 
 # Installer les dépendances avec poetry
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+    && poetry install
 
 # Ajouter les scripts
 COPY ./python-scripts /app/python-scripts
