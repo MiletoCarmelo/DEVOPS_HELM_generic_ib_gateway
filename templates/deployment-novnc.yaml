@@ -45,22 +45,3 @@ spec:
                 configMapKeyRef:
                   name: {{ include "ib-gateway.fullname" . }}-config
                   key: VNC_SERVER_PASSWORD
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "ib-gateway.fullname" . }}-novnc
-  labels:
-    {{- include "ib-gateway.labels" . | nindent 4 }}
-    app.kubernetes.io/component: novnc
-spec:
-  type: {{ .Values.novnc.service.type }}
-  ports:
-    - port: {{ .Values.novnc.service.port }}
-      targetPort: http
-      protocol: TCP
-      name: http
-  selector:
-    {{- include "ib-gateway.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/component: novnc
-{{- end }}
