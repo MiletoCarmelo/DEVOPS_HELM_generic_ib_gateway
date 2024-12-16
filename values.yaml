@@ -129,7 +129,7 @@ novnc:
 # Configuration VNC
 vnc:
   enabled: true
-  port: "5900"
+  port: 5900
   password: "myVNCpass"
 
 # Python Service Configuration
