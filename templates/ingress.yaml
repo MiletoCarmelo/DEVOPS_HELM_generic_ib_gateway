@@ -12,7 +12,7 @@ metadata:
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
-    - host: {{ include "ib-gateway.tailscaleIP" . }}
+    - host: "{{ .Values.tailscaleIP }}"
       http:
         paths:
         {{- range .Values.ingress.hosts.paths }}
