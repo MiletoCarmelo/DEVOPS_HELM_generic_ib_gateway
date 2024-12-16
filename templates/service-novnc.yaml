@@ -6,10 +6,10 @@ metadata:
   labels:
     {{- include "ib-gateway.labels" . | nindent 4 }}
     app.kubernetes.io/component: novnc
-    {{- with .Values.novnc.service.annotations }}
-    annotations:
-        {{- toYaml . | nindent 4 }}
-    {{- end }}
+  {{- with .Values.novnc.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.novnc.service.type }}
   ports:
