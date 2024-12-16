@@ -123,7 +123,7 @@ novnc:
     tag: latest
     pullPolicy: IfNotPresent
   service:
-    type: NodePort  # Changer de ClusterIP à NodePort
+    type: LoadBalancer  # Changer de ClusterIP à NodePort
     port: 6080
   display:
     width: "1280"
