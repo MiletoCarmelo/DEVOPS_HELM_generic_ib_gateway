@@ -18,6 +18,11 @@ data:
   {{- if .Values.vnc.enabled }}
   VNC_SERVER_PASSWORD: "{{ .Values.vnc.password }}"
   {{- end }}
+  vnc.conf: |
+    geometry=1280x800
+    depth=16
+    SecurityTypes=VncAuth,None
+    localhost=no
   
 ---
 # Deuxième ConfigMap (nouveau, avec un nom statique)

@@ -22,17 +22,6 @@ env:
   - name: TWS_SETTINGS_PATH
     value: "/config/ibgateway/Jts"      
 
-volumes:
-  - name: config-volume
-    configMap:
-      name: ib-gateway-files-config 
-
-volumeMounts:
-  - name: config-volume
-    mountPath: /config/ibgateway  # Montage du répertoire parent
-  - name: config-volume
-    mountPath: /config/ibc       # Montage du répertoire parent pour IBC
-
 serviceAccount:
   create: true
   name: ""
@@ -54,6 +43,13 @@ service:
       port: 5900
       targetPort: 5900
       protocol: TCP
+
+# Ajoutez un readiness probe pour le container VNC
+readinessProbe:
+  tcpSocket:
+    port: 5900
+  initialDelaySeconds: 30
+  periodSeconds: 10
 
 persistence:
   enabled: true

@@ -20,6 +20,11 @@ spec:
         - name: config-storage
           persistentVolumeClaim:
             claimName: {{ include "ib-gateway.fullname" . }}-pvc
+        - name: tmp-volume
+          emptyDir: {}
+        {{- if .Values.volumes }}
+        {{- toYaml .Values.volumes | nindent 8 }}
+        {{- end }}
       initContainers:
         - name: init-config
           image: busybox
@@ -49,6 +54,10 @@ spec:
               mountPath: /config/ibgateway
             - name: config-storage
               mountPath: /config/ibc
+            - name: tmp-volume
+              mountPath: /tmp/.X11-unix
+          securityContext:
+            privileged: true
           env:
             {{- range .Values.env }}
             - name: {{ .name }}
