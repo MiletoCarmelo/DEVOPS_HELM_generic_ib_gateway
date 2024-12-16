@@ -29,7 +29,7 @@ serviceAccount:
 
 
 service:
-  type: NodePort
+  type: LoadBalancer
   ports:
     - name: tws
       port: 4001
