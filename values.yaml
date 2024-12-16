@@ -43,6 +43,8 @@ service:
       port: 5900
       targetPort: 5900
       protocol: TCP
+  annotations:
+    tailscale.com/expose: "true"
 
 # Ajoutez un readiness probe pour le container VNC
 readinessProbe:
@@ -60,6 +62,7 @@ persistence:
 # Configuration du namespace
 namespace:
   name: "ib-gateway"
+
 
 ingress:
   enabled: true
