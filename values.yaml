@@ -125,6 +125,7 @@ novnc:
   service:
     type: LoadBalancer
     port: 6080
+    containerPort: 6080
     annotations:
       tailscale.com/expose: "true"
   display:
